@@ -1,12 +1,13 @@
 {
-  "name": "TODO",
-  "description": "TODO",
+  "name": "open-atlas",
+  "description": "An open map atlas",
   "version": "0.0.1",
   "scripts": {
     "dev": "sapper dev",
     "build": "sapper build",
-    "export": "sapper export",
-    "start": "node __sapper__/build"
+    "export": "sapper export --basepath open-atlas",
+    "start": "node __sapper__/build",
+    "deploy": "sapper export --basepath open-atlas && gh-pages -d __sapper__/export"
   },
   "dependencies": {
     "compression": "^1.7.1",
