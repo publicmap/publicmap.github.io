@@ -1,5 +1,8 @@
 <script>
 	import successkid from 'images/successkid.jpg';
+	import Map from "../components/Map.svelte";
+
+	let map;
 </script>
 
 <style>
@@ -37,10 +40,10 @@
 </style>
 
 <svelte:head>
-	<title>Sapper project template</title>
+	<title>Open Atlas</title>
 </svelte:head>
 
-<h1>Great success!</h1>
+<h1>A!</h1>
 
 <figure>
 	<img alt="Success Kid" src="{successkid}">
@@ -48,3 +51,6 @@
 </figure>
 
 <p><strong>Try editing this file (src/routes/index.svelte) to test live reloading.</strong></p>
+
+<Map
+  bind:map />

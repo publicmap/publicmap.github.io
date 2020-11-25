@@ -3,7 +3,7 @@
   "description": "An open map atlas",
   "version": "0.0.1",
   "scripts": {
-    "dev": "sapper dev",
+    "dev": "sapper dev --no-hot",
     "build": "sapper build",
     "export": "sapper export --basepath open-atlas",
     "start": "node __sapper__/build",
@@ -20,6 +20,7 @@
     "file-loader": "^6.0.0",
     "svelte-loader": "^2.9.0",
     "webpack": "^4.7.0",
-    "webpack-modules": "^1.0.0"
+    "webpack-modules": "^1.0.0",
+    "mapbox-gl": "^1.13.0"
   }
 }
