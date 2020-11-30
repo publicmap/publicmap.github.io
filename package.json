@@ -15,12 +15,13 @@
     "sirv": "^1.0.0"
   },
   "devDependencies": {
+    "@beyonk/svelte-mapbox": "^5.2.2",
+    "file-loader": "^6.0.0",
+    "mapbox-gl": "^1.13.0",
     "sapper": "^0.28.0",
     "svelte": "^3.17.3",
-    "file-loader": "^6.0.0",
     "svelte-loader": "^2.9.0",
     "webpack": "^4.7.0",
-    "webpack-modules": "^1.0.0",
-    "mapbox-gl": "^1.13.0"
+    "webpack-modules": "^1.0.0"
   }
 }

@@ -4,8 +4,8 @@
 
   // Worldview for disputed areas.
   // https://docs.mapboxgl.com/vector-tiles/reference/mapbox-boundaries-v3/#--polygon---worldview-text
-  export let settings = {
-    style: "mapbox://styles/mapbox/streets-v11",
+  export let map, settings = {
+    style: "satellite",
     worldview: "US",
     langauge: "en",
     location: {
@@ -18,7 +18,19 @@
   mapboxgl.accessToken =
     "pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2todmxnbDFyMDFmcDJ5cGthZ2Vqenh3OSJ9.Plw3yyu23yPZFPIiuatpKQ";
 
-  export let map;
+
+  // https://docs.mapbox.com/api/maps/#mapbox-styles
+  let mapStyles = {
+    default: "mapbox://styles/mapbox/streets-v11",
+    outdoor: "mapbox://styles/mapbox/outdoors-v11",
+    satellite: "mapbox://styles/mapbox/satellite-v9",
+    "satellite-map": "mapbox://styles/mapbox/satellite-streets-v11",
+  };
+
+  // Default map program
+  export let program = function (map) {
+    console.log(map);
+  };
 
   let container;
   let options;
@@ -41,7 +53,7 @@
     link.onload = () => {
       map = new mapboxgl.Map({
         container,
-        style: settings.style,
+        style: mapStyles[settings.style],
         interactive: true,
         ...options,
       });
@@ -62,7 +74,9 @@
       map.addControl(scale, "bottom-right");
 
       map.on("load", function () {
-        loadMapLayers();
+        initMap();
+
+        program(map);
       });
     };
 
@@ -74,7 +88,7 @@
     };
   });
 
-  function loadMapLayers() {}
+  function initMap() {}
 </script>
 
 <style>

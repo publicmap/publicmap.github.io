@@ -1,18 +1,10 @@
 <style>
 	div {
 		z-index: 2;
-		width: 40%;
-		position: absolute;
-	}
-	@media (max-width: 1000px) {
-		div {
-			width: 100%;
-			top: 60%;
-		}
 	}
 
 </style>
 
-<div>
+<div id="panel" class="uk-position-absolute uk-width-1-1">
 	<slot></slot>
 </div>

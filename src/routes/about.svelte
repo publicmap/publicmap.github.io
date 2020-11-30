@@ -1,7 +1,20 @@
+<script>
+  import Panel from "../components/Panel.svelte";
+  import Map from "../components/Map.svelte";
+
+function mapProgram(map){
+	console.log(map);
+}
+</script>
+
 <svelte:head>
-	<title>About</title>
+  <title>About</title>
 </svelte:head>
 
-<h1>About this site</h1>
+<Panel>
+  <h1>About</h1>
 
-<p>This is the 'about' page. There's not much here.</p>
+  <p>This is the 'about' page. There's not much here.</p>
+</Panel>
+
+<Map program={mapProgram}/>
