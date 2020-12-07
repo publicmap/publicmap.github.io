@@ -168,12 +168,7 @@
 		settings.map.filter.iso_3166_1_name = data.features[data.features.length-1][`text_${settings.user.language}`]
 		settings.map.filter.iso_3166_1 = data.features[data.features.length-1]["properties"]["short_code"]
 
-		styleMap(map.getMap())
-		console.log(geocoder)
-		console.log(Geocoder.$set())
-
-
-		
+		styleMap(map.getMap())		
 	})
   }
 
@@ -331,6 +326,13 @@
   section {
     background-color: rgba(255, 255, 255, 0.5);
   }
+  :global(#map .mapboxgl-control-container>*) {
+		opacity: 0.5;
+		z-index:10;
+	}
+	:global(#map:hover .mapboxgl-control-container>*) {
+		opacity: 1;
+	}
 </style>
 
 <svelte:head>
@@ -339,8 +341,14 @@
 
 <Panel>
   <section class="uk-padding-small">
-    <h1>{settings.map.filter.iso_3166_1_name}</h1>
-    <br />
+	<h1>{settings.map.filter.iso_3166_1_name}</h1>
+	{#if settings.map.filter.iso_3166_1 }
+	hi
+	
+	<img width=200 src='https://api.mapbox.com/styles/v1/planemad/ckhw6q1000e0h19pckcjqadsr/static/0,10,0,0/600x300?access_token=pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiemdYSVVLRSJ9.g3lbg_eN0kztmsfIPxa9MQ&amp;setfilter=["all",["any",["in","US",["get","worldview"]],["==","all",["get","worldview"]]],["match",["get","iso_3166_1"],["{settings.map.filter.iso_3166_1.toUpperCase()}"],true,false]]&amp;layer_id=selected-countries'>
+	
+	{/if}
+	<br />
 	<Geocoder
 	bind:this={geocoder}
       accessToken={settings.map.accessToken}

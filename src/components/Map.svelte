@@ -89,6 +89,33 @@
   });
 
   function initMap() {}
+
+
+  // var traceRequest = new XMLHttpRequest();
+  //       traceRequest.open("GET", 'https://www.cloudflare.com/cdn-cgi/trace');
+  //       traceRequest.onreadystatechange = () => {
+  //           if (traceRequest.readyState == XMLHttpRequest.DONE) {
+  //               let worldView = "US"
+  //               if (traceRequest.status == 200) {
+  //                   worldView = traceRequest.responseText.match(/loc=([^\n+]*)/)[1]
+  //                   if (!(worldViews.includes(worldView.trim().toUpperCase()))) {
+  //                       worldView = 'US'
+  //                   }
+  //               }
+  //               this.host.persistProperties(<VisualObjectInstancesToPersist>{
+  //                   merge: [{
+  //                       objectName: "choropleth",
+  //                       selector: null,
+  //                       properties: {
+  //                           worldView: worldView,
+  //                       }
+  //                   }]
+  //               })
+  //           }
+  //       }
+  //       traceRequest.send(null);
+
+
 </script>
 
 <style>
