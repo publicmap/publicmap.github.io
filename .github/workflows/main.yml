@@ -23,4 +23,4 @@ jobs:
       with:
         ACCESS_TOKEN: ${{ secrets.PLANEMAD_REPO }}
         BRANCH: gh-pages
-        FOLDER: __sapper__/export/open-atlas
+        FOLDER: __sapper__/export/atlas
