@@ -21,7 +21,7 @@
     },
     map: {
       accessToken:
-        "pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2todmxnbDFyMDFmcDJ5cGthZ2Vqenh3OSJ9.Plw3yyu23yPZFPIiuatpKQ",
+        "pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ",
       // Switch to pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ
       worldview: "US", // Set worldview to use for disputed areas
       style: "mapbox://styles/planemad/ckgopajx83l581bo6qr5l86yg",
