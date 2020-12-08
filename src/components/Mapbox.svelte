@@ -22,9 +22,10 @@
     map: {
       accessToken:
         "pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ",
-      // Switch to pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ
       worldview: "US", // Set worldview to use for disputed areas
+      style: "mapbox://styles/planemad/ck7p3wxmp0q571imu99elwqs1",
       style: "mapbox://styles/planemad/ckgopajx83l581bo6qr5l86yg",
+      // ckgopajx83l581bo6qr5l86yg
       locationContext: null,
       filter: {
         iso_3166_1: null,
@@ -363,7 +364,55 @@
 'maxzoom': 14
 });
 // add the DEM source as a terrain layer with exaggerated height
-map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 4 });
+
+// Insert the layer beneath any symbol layer.
+var layers = map.getStyle().layers;
+ 
+var labelLayerId;
+for (var i = 0; i < layers.length; i++) {
+if (layers[i].type === 'symbol' && layers[i].layout['text-field']) {
+labelLayerId = layers[i].id;
+break;
+}
+}
+ 
+map.addLayer(
+{
+'id': '3d-buildings',
+'source': 'composite',
+'source-layer': 'building',
+'filter': ['==', 'extrude', 'true'],
+'type': 'fill-extrusion',
+'minzoom': 15,
+'paint': {
+'fill-extrusion-color': '#aaa',
+ 
+// use an 'interpolate' expression to add a smooth transition effect to the
+// buildings as the user zooms in
+'fill-extrusion-height': [
+'interpolate',
+['linear'],
+['zoom'],
+15,
+0,
+15.05,
+['get', 'height']
+],
+'fill-extrusion-base': [
+'interpolate',
+['linear'],
+['zoom'],
+15,
+0,
+15.05,
+['get', 'min_height']
+],
+'fill-extrusion-opacity': 0.6
+}
+},
+labelLayerId
+);
  
 // add a sky layer that will show when the map is highly pitched
 map.addLayer({
@@ -372,7 +421,7 @@ map.addLayer({
 'paint': {
 'sky-type': 'atmosphere',
 'sky-atmosphere-sun': [0.0, 0.0],
-'sky-atmosphere-sun-intensity': 15
+'sky-atmosphere-sun-intensity': 2
 }
 });
   }
@@ -389,8 +438,12 @@ map.addLayer({
     right: 10px;
     bottom:10px;
   }
-  section {
-    background-color: rgba(255, 255, 255, 0.5);
+  section{
+    z-index:-1;
+  }
+  span.block{
+    padding: 0 4px;
+    background-color: rgba(255, 255, 255, 0.5)
   }
   :global(#map .mapboxgl-control-container > *) {
     opacity: 0.5;
@@ -403,7 +456,7 @@ map.addLayer({
 
 <Panel>
   <section class="uk-padding-small">
-    <h1 class="uk-no-margin">{settings.map.filter.iso_3166_1_label}</h1>
+    <h1 class="uk-no-margin"><span class="block">{settings.map.filter.iso_3166_1_label}</span></h1>
     <Geocoder
       bind:this={geocoder}
       accessToken={settings.map.accessToken}
