@@ -12,8 +12,7 @@
   <ul class="uk-subnav uk-margin-remove">
     <li><span uk-icon="icon: world" /></li>
     <li class={segment === undefined ? 'uk-active' : ''}>
-      <a aria-current={segment === undefined ? 'page' : undefined} href=".">Open
-        Atlas</a>
+      <a aria-current={segment === undefined ? 'page' : undefined} href=".">Atlas</a>
     </li>
 
     <!-- for the blog link, we're using rel=prefetch so that Sapper prefetches

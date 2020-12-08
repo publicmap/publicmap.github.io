@@ -14,9 +14,14 @@
         [1.863, 59.479],
       ],
     },
+    user:{
+      location: {lng: null, lat: null},
+      iso_3166_1: null,
+      locale: null,
+    }
   };
   mapboxgl.accessToken =
-    "pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2todmxnbDFyMDFmcDJ5cGthZ2Vqenh3OSJ9.Plw3yyu23yPZFPIiuatpKQ";
+    "pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ";
 
 
   // https://docs.mapbox.com/api/maps/#mapbox-styles
@@ -50,15 +55,26 @@
     let localeLanguage = locale.split("-")[0] || settings.langauge;
     let localeCountry = locale.split("-")[1] || settings.worldview;
 
+    //
+    // Construct map
+    //
+
     link.onload = () => {
+
+      // Create a basic map
+
       map = new mapboxgl.Map({
         container,
         style: mapStyles[settings.style],
         interactive: true,
         ...options,
       });
-      // map.scrollZoom.disable();
 
+      console.log('hi')
+      detectUserSettings();
+
+      // Enable RTL support
+      // https://docs.mapbox.com/mapbox-gl-js/example/mapbox-gl-rtl-text/
       mapboxgl.setRTLTextPlugin(
         "https://api.mapboxgl.com/mapbox-gl-js/plugins/mapbox-gl-rtl-text/v0.2.3/mapbox-gl-rtl-text.js",
         null,
@@ -73,11 +89,16 @@
       });
       map.addControl(scale, "bottom-right");
 
+      //
+      // Map logic
+      //
+
       map.on("load", function () {
         initMap();
 
         program(map);
       });
+
     };
 
     document.head.appendChild(link);
@@ -86,34 +107,18 @@
       map.remove();
       link.parentNode.removeChild(link);
     };
+
   });
 
-  function initMap() {}
+  function initMap() {
 
 
-  // var traceRequest = new XMLHttpRequest();
-  //       traceRequest.open("GET", 'https://www.cloudflare.com/cdn-cgi/trace');
-  //       traceRequest.onreadystatechange = () => {
-  //           if (traceRequest.readyState == XMLHttpRequest.DONE) {
-  //               let worldView = "US"
-  //               if (traceRequest.status == 200) {
-  //                   worldView = traceRequest.responseText.match(/loc=([^\n+]*)/)[1]
-  //                   if (!(worldViews.includes(worldView.trim().toUpperCase()))) {
-  //                       worldView = 'US'
-  //                   }
-  //               }
-  //               this.host.persistProperties(<VisualObjectInstancesToPersist>{
-  //                   merge: [{
-  //                       objectName: "choropleth",
-  //                       selector: null,
-  //                       properties: {
-  //                           worldView: worldView,
-  //                       }
-  //                   }]
-  //               })
-  //           }
-  //       }
-  //       traceRequest.send(null);
+
+  }
+
+
+
+
 
 
 </script>
