@@ -16,6 +16,8 @@ npm install
 
 **Develop**
 
+The page sources can be found in `src/routes`
+
 ```
 npm run dev
 ```
