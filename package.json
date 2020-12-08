@@ -1,13 +1,13 @@
 {
-  "name": "open-atlas",
+  "name": "publicmap-atlas",
   "description": "An open map atlas",
   "version": "0.0.1",
   "scripts": {
     "dev": "sapper dev --no-hot",
     "build": "sapper build",
-    "export": "sapper export --basepath open-atlas",
+    "export": "sapper export --basepath atlas",
     "start": "node __sapper__/build",
-    "deploy": "sapper export --basepath open-atlas && gh-pages -d __sapper__/export"
+    "deploy": "sapper export --basepath atlas && gh-pages -d __sapper__/export"
   },
   "dependencies": {
     "compression": "^1.7.1",
