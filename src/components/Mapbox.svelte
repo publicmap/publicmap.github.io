@@ -1,10 +1,10 @@
 <script>
   import Panel from "../components/Panel.svelte";
   import { Map, Geocoder, Marker, controls } from "@beyonk/svelte-mapbox";
-  import { onMount, createEventDispatcher, setContext } from 'svelte'
+  import { onMount, createEventDispatcher, setContext } from "svelte";
   import RulerControl from "../components/Mapbox/RulerControl.svelte";
   import TitleControl from "../components/Mapbox/TitleControl.svelte";
-  import { contextKey } from './mapbox.js'
+  import { contextKey } from "./mapbox.js";
 
   const { GeolocateControl, NavigationControl, ScaleControl } = controls;
 
@@ -14,8 +14,8 @@
 
   setContext(contextKey, {
     getMap: () => map,
-    getMapbox: () => mapbox
-  })
+    getMapbox: () => mapbox,
+  });
 
   export let settings = {
     user: {
@@ -44,8 +44,6 @@
     },
   };
 
-  
-
   function onGeocoderResult(e) {
     console.log(e.detail.result.center);
     map.setCenter(e.detail.result.center);
@@ -56,10 +54,9 @@
   }
 
   function onMapReady(e) {
-
     map = mapbox.getMap();
 
-    detectUserSettings()
+    detectUserSettings();
     getLocationContext(e);
 
     initMap();
@@ -176,10 +173,8 @@
   };
 
   function getLocationContext(e) {
-
-
     let querylngLat = map.getCenter();
-    
+
     let reverseGeocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${
       querylngLat.lng
     }%2C${querylngLat.lat}.json?access_token=${
@@ -345,137 +340,159 @@
     return matchingFeatures;
   }
 
-
-  function detectUserSettings(){
-
-//     fetch('https://www.cloudflare.com/cdn-cgi/trace').then(resp=>resp.json())
-// .then(data=>console.log(data))
-  // var traceRequest = new XMLHttpRequest();
-  //       traceRequest.open("GET", 'https://www.cloudflare.com/cdn-cgi/trace');
-  //       traceRequest.onreadystatechange = () => {
-  //           if (traceRequest.readyState == XMLHttpRequest.DONE) {
-  //               let worldView = "US"
-  //               if (traceRequest.status == 200) {
-  //                   worldView = traceRequest.responseText.match(/loc=([^\n+]*)/)[1]
-                    
-  //                   console.log(worldView)
-  //               }
-  //           }
-  //       }
-  //       traceRequest.send(null);
-
+  function detectUserSettings() {
+    //     fetch('https://www.cloudflare.com/cdn-cgi/trace').then(resp=>resp.json())
+    // .then(data=>console.log(data))
+    // var traceRequest = new XMLHttpRequest();
+    //       traceRequest.open("GET", 'https://www.cloudflare.com/cdn-cgi/trace');
+    //       traceRequest.onreadystatechange = () => {
+    //           if (traceRequest.readyState == XMLHttpRequest.DONE) {
+    //               let worldView = "US"
+    //               if (traceRequest.status == 200) {
+    //                   worldView = traceRequest.responseText.match(/loc=([^\n+]*)/)[1]
+    //                   console.log(worldView)
+    //               }
+    //           }
+    //       }
+    //       traceRequest.send(null);
   }
 
-  function initMap(){
+  function initMap() {
+    setWorldViewFilter(
+      [
+        "country-boundaries",
+        "admin-boundaries-line",
+        "country-boundaries-outline",
+      ],
+      "IN"
+    );
 
-    setWorldViewFilter(["country-boundaries","admin-boundaries-line","country-boundaries-outline"],'IN');
+    map.addSource("mapbox-dem", {
+      type: "raster-dem",
+      url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+      tileSize: 512,
+      maxzoom: 14,
+    });
+    // add the DEM source as a terrain layer with exaggerated height
+    map.setTerrain({
+      source: "mapbox-dem",
+      exaggeration: [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        1,
+        200,
+        3,
+        40,
+        5,
+        10,
+        10,
+        4,
+        12,
+        2,
+        16,
+        1,
+      ],
+    });
 
+    // Insert the layer beneath any symbol layer.
+    var layers = map.getStyle().layers;
 
-    map.addSource('mapbox-dem', {
-'type': 'raster-dem',
-'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-'tileSize': 512,
-'maxzoom': 14
-});
-// add the DEM source as a terrain layer with exaggerated height
-map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 4 });
+    var labelLayerId;
+    for (var i = 0; i < layers.length; i++) {
+      if (layers[i].type === "symbol" && layers[i].layout["text-field"]) {
+        labelLayerId = layers[i].id;
+        break;
+      }
+    }
 
-// Insert the layer beneath any symbol layer.
-var layers = map.getStyle().layers;
- 
-var labelLayerId;
-for (var i = 0; i < layers.length; i++) {
-if (layers[i].type === 'symbol' && layers[i].layout['text-field']) {
-labelLayerId = layers[i].id;
-break;
-}
-}
- 
-map.addLayer(
-{
-'id': '3d-buildings',
-'source': 'composite',
-'source-layer': 'building',
-'filter': ['==', 'extrude', 'true'],
-'type': 'fill-extrusion',
-'minzoom': 15,
-'paint': {
-'fill-extrusion-color': '#aaa',
- 
-// use an 'interpolate' expression to add a smooth transition effect to the
-// buildings as the user zooms in
-'fill-extrusion-height': [
-'interpolate',
-['linear'],
-['zoom'],
-15,
-0,
-15.05,
-['get', 'height']
-],
-'fill-extrusion-base': [
-'interpolate',
-['linear'],
-['zoom'],
-15,
-0,
-15.05,
-['get', 'min_height']
-],
-'fill-extrusion-opacity': 0.6
-}
-},
-labelLayerId
-);
- 
-// add a sky layer that will show when the map is highly pitched
-map.addLayer({
-'id': 'sky',
-'type': 'sky',
-'paint': {
-'sky-type': 'atmosphere',
-'sky-atmosphere-sun': [0.0, 0.0],
-'sky-atmosphere-sun-intensity': 2
-}
-});
+    map.addLayer(
+      {
+        id: "3d-buildings",
+        source: "composite",
+        "source-layer": "building",
+        filter: ["==", "extrude", "true"],
+        type: "fill-extrusion",
+        minzoom: 15,
+        paint: {
+          "fill-extrusion-color": "#aaa",
+
+          // use an 'interpolate' expression to add a smooth transition effect to the
+          // buildings as the user zooms in
+          "fill-extrusion-height": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            15,
+            0,
+            15.05,
+            ["get", "height"],
+          ],
+          "fill-extrusion-base": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            15,
+            0,
+            15.05,
+            ["get", "min_height"],
+          ],
+          "fill-extrusion-opacity": 0.8,
+        },
+      },
+      labelLayerId
+    );
+
+    // add a sky layer that will show when the map is highly pitched
+    map.addLayer({
+      id: "sky",
+      type: "sky",
+      paint: {
+        "sky-type": "atmosphere",
+        "sky-atmosphere-sun": [0.0, 0.0],
+        "sky-atmosphere-sun-intensity": 2,
+      },
+    });
   }
 
-  function setWorldViewFilter(layers, worldView){
-    let worldviewFilter = getWorldviewFilter(worldView) 
+  function setWorldViewFilter(layers, worldView) {
+    let worldviewFilter = getWorldviewFilter(worldView);
 
-    layers.forEach(layerId=> map.setFilter(layerId, worldviewFilter))
-
+    layers.forEach((layerId) => map.setFilter(layerId, worldviewFilter));
   }
 
-  function getWorldviewFilter(worldView){
-    let selectedWorldView = worldView || 'IN';
+  function getWorldviewFilter(worldView) {
+    let selectedWorldView = worldView || "IN";
     return [
       "all",
       [
         "any",
-        ["in", selectedWorldView || settings.map.worldview, ["get", "worldview"]],
+        [
+          "in",
+          selectedWorldView || settings.map.worldview,
+          ["get", "worldview"],
+        ],
         ["==", "all", ["get", "worldview"]],
       ],
-    ]
+    ];
   }
-
 </script>
 
 <style>
   #map {
     height: 100vh;
   }
-  #locator-map{
+  #locator-map {
     position: absolute;
     right: 10px;
-    bottom:10px;
+    bottom: 10px;
   }
-  section{
-    z-index:-1;
+  section {
+    z-index: -1;
   }
-  span.block{
+  span.block {
     padding: 0 4px;
-    background-color: rgba(255, 255, 255, 0.5)
+    background-color: rgba(255, 255, 255, 0.5);
   }
   /* :global(#map .mapboxgl-control-container > *) {
     opacity: 0.5;
@@ -485,40 +502,43 @@ map.addLayer({
     opacity: 1;
   } */
 
-  :global(.mapboxgl-control-container>*>:not(.mapboxgl-ctrl-attrib)){
-        opacity:0.2;
-        transition: opacity 2s ease-out;
-        z-index: 99;
-      }
-      :global( .mapboxgl-control-container:hover>*>*){
-        opacity:1;
-        transition: opacity 0.1s ease-in;
-      }
-      :global(.mapboxgl-ctrl-geocoder) {
-        width: 30px;
-        min-width: 30px;
-      }
+  :global(.mapboxgl-control-container > * > :not(.mapboxgl-ctrl-attrib)) {
+    opacity: 0.2;
+    transition: opacity 2s ease-out;
+    z-index: 99;
+  }
+  :global(.mapboxgl-control-container:hover > * > *) {
+    opacity: 1;
+    transition: opacity 0.1s ease-in;
+  }
+  :global(.mapboxgl-ctrl-geocoder) {
+    width: 30px;
+    min-width: 30px;
+  }
 
-      :global(.mapboxgl-ctrl-geocoder .suggestions li,
-      .mapboxgl-ctrl-geocoder div) {
-        display: none;
-      }
+  :global(.mapboxgl-ctrl-geocoder .suggestions li, .mapboxgl-ctrl-geocoder
+      div) {
+    display: none;
+  }
 
-      :global(.mapboxgl-ctrl-geocoder:hover) {
-        width: 200px;
-        min-width: inherit;
-        transition: width 0.3s ease-in-out;
-      }
+  :global(.mapboxgl-ctrl-geocoder:hover) {
+    width: 200px;
+    min-width: inherit;
+    transition: width 0.3s ease-in-out;
+  }
 
-      :global(.mapboxgl-ctrl-geocoder:hover .suggestions li,
-      .mapboxgl-ctrl-geocoder:hover div) {
-        display: inherit;
-      }
+  :global(.mapboxgl-ctrl-geocoder:hover
+      .suggestions
+      li, .mapboxgl-ctrl-geocoder:hover div) {
+    display: inherit;
+  }
 </style>
 
 <Panel>
   <section class="uk-padding-small">
-    <h1 class="uk-no-margin"><span class="block">{settings.map.filter.iso_3166_1_label}</span></h1>
+    <h1 class="uk-no-margin">
+      <span class="block">{settings.map.filter.iso_3166_1_label}</span>
+    </h1>
     <!-- <Geocoder
     bind:this={geocoder}
     accessToken={settings.map.accessToken}
@@ -529,12 +549,11 @@ map.addLayer({
 </Panel>
 
 <div id="map">
-
   <Map
     bind:this={mapbox}
     accessToken={settings.map.accessToken}
     style={settings.map.style}
-    options={{hash:true, attributionControl: true}}
+    options={{ hash: true, attributionControl: true }}
     on:ready={onMapReady}
     on:recentre={getLocationContext}
     version="v2.0.0">
@@ -543,16 +562,17 @@ map.addLayer({
       options={{ trackUserLocation: true }}
       on:geolocate={onGeolocate} />
     <NavigationControl />
-    
-    <ScaleControl />
-    <RulerControl/>
-    <TitleControl/>
-  </Map>
 
+    <ScaleControl />
+    <RulerControl />
+    <TitleControl />
+  </Map>
 </div>
 
-<div id="locator-map">    
+<div id="locator-map">
   {#if false && settings.map.filter.iso_3166_1}
-  <img width=200 src='https://api.mapbox.com/styles/v1/planemad/ckhw6q1000e0h19pckcjqadsr/static/0,10,0,0/600x300?access_token=pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiemdYSVVLRSJ9.g3lbg_eN0kztmsfIPxa9MQ&amp;setfilter=["all",["any",["in","US",["get","worldview"]],["==","all",["get","worldview"]]],["match",["get","iso_3166_1"],["{settings.map.filter.iso_3166_1.toUpperCase()}"],true,false]]&amp;layer_id=selected-countries'>
+    <img
+      width="200"
+      src={`https://api.mapbox.com/styles/v1/planemad/ckhw6q1000e0h19pckcjqadsr/static/0,10,0,0/600x300?access_token=pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiemdYSVVLRSJ9.g3lbg_eN0kztmsfIPxa9MQ&amp;setfilter=["all",["any",["in","US",["get","worldview"]],["==","all",["get","worldview"]]],["match",["get","iso_3166_1"],["{settings.map.filter.iso_3166_1.toUpperCase()}"],true,false]]&amp;layer_id=selected-countries`} />
   {/if}
 </div>
