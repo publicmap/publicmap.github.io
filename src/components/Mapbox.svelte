@@ -1,13 +1,21 @@
 <script>
   import Panel from "../components/Panel.svelte";
   import { Map, Geocoder, Marker, controls } from "@beyonk/svelte-mapbox";
-  // const fetch = require('node-fetch');
+  import { onMount, createEventDispatcher, setContext } from 'svelte'
+  import RulerControl from "../components/Mapbox/RulerControl.svelte";
+  import TitleControl from "../components/Mapbox/TitleControl.svelte";
+  import { contextKey } from './mapbox.js'
 
   const { GeolocateControl, NavigationControl, ScaleControl } = controls;
 
   import countries from "../data/mapbox-countries-v1.json";
 
-  export let mapbox, map, geocoder;
+  let map, geocoder, mapbox;
+
+  setContext(contextKey, {
+    getMap: () => map,
+    getMapbox: () => mapbox
+  })
 
   export let settings = {
     user: {
@@ -168,6 +176,8 @@
   };
 
   function getLocationContext(e) {
+
+
     let querylngLat = map.getCenter();
     
     let reverseGeocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${
@@ -357,6 +367,10 @@
   }
 
   function initMap(){
+
+    setWorldViewFilter(["country-boundaries","admin-boundaries-line","country-boundaries-outline"],'IN');
+
+
     map.addSource('mapbox-dem', {
 'type': 'raster-dem',
 'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
@@ -426,6 +440,24 @@ map.addLayer({
 });
   }
 
+  function setWorldViewFilter(layers, worldView){
+    let worldviewFilter = getWorldviewFilter(worldView) 
+
+    layers.forEach(layerId=> map.setFilter(layerId, worldviewFilter))
+
+  }
+
+  function getWorldviewFilter(worldView){
+    let selectedWorldView = worldView || 'IN';
+    return [
+      "all",
+      [
+        "any",
+        ["in", selectedWorldView || settings.map.worldview, ["get", "worldview"]],
+        ["==", "all", ["get", "worldview"]],
+      ],
+    ]
+  }
 
 </script>
 
@@ -445,24 +477,54 @@ map.addLayer({
     padding: 0 4px;
     background-color: rgba(255, 255, 255, 0.5)
   }
-  :global(#map .mapboxgl-control-container > *) {
+  /* :global(#map .mapboxgl-control-container > *) {
     opacity: 0.5;
     z-index: 10;
   }
   :global(#map:hover .mapboxgl-control-container > *) {
     opacity: 1;
-  }
+  } */
+
+  :global(.mapboxgl-control-container>*>:not(.mapboxgl-ctrl-attrib)){
+        opacity:0.2;
+        transition: opacity 2s ease-out;
+        z-index: 99;
+      }
+      :global( .mapboxgl-control-container:hover>*>*){
+        opacity:1;
+        transition: opacity 0.1s ease-in;
+      }
+      :global(.mapboxgl-ctrl-geocoder) {
+        width: 30px;
+        min-width: 30px;
+      }
+
+      :global(.mapboxgl-ctrl-geocoder .suggestions li,
+      .mapboxgl-ctrl-geocoder div) {
+        display: none;
+      }
+
+      :global(.mapboxgl-ctrl-geocoder:hover) {
+        width: 200px;
+        min-width: inherit;
+        transition: width 0.3s ease-in-out;
+      }
+
+      :global(.mapboxgl-ctrl-geocoder:hover .suggestions li,
+      .mapboxgl-ctrl-geocoder:hover div) {
+        display: inherit;
+      }
 </style>
 
 <Panel>
   <section class="uk-padding-small">
     <h1 class="uk-no-margin"><span class="block">{settings.map.filter.iso_3166_1_label}</span></h1>
-    <Geocoder
-      bind:this={geocoder}
-      accessToken={settings.map.accessToken}
-      options={{ localGeocoder: forwardGeocoder, countries: settings.map.filter.iso_3166_1 }}
-      placeholder={'Find a place'}
-      on:result={onGeocoderResult} />
+    <!-- <Geocoder
+    bind:this={geocoder}
+    accessToken={settings.map.accessToken}
+    options={{ position: 'top-right',localGeocoder: forwardGeocoder, countries: settings.map.filter.iso_3166_1 ? settings.map.filter.iso_3166_1.toLocaleLowerCase() : '' }}
+    placeholder={'Find a place'}
+    on:result={onGeocoderResult} /> -->
   </section>
 </Panel>
 
@@ -472,7 +534,7 @@ map.addLayer({
     bind:this={mapbox}
     accessToken={settings.map.accessToken}
     style={settings.map.style}
-    options={{hash:true}}
+    options={{hash:true, attributionControl: true}}
     on:ready={onMapReady}
     on:recentre={getLocationContext}
     version="v2.0.0">
@@ -481,13 +543,16 @@ map.addLayer({
       options={{ trackUserLocation: true }}
       on:geolocate={onGeolocate} />
     <NavigationControl />
+    
     <ScaleControl />
+    <RulerControl/>
+    <TitleControl/>
   </Map>
 
 </div>
 
 <div id="locator-map">    
-  {#if settings.map.filter.iso_3166_1}
+  {#if false && settings.map.filter.iso_3166_1}
   <img width=200 src='https://api.mapbox.com/styles/v1/planemad/ckhw6q1000e0h19pckcjqadsr/static/0,10,0,0/600x300?access_token=pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiemdYSVVLRSJ9.g3lbg_eN0kztmsfIPxa9MQ&amp;setfilter=["all",["any",["in","US",["get","worldview"]],["==","all",["get","worldview"]]],["match",["get","iso_3166_1"],["{settings.map.filter.iso_3166_1.toUpperCase()}"],true,false]]&amp;layer_id=selected-countries'>
   {/if}
 </div>
