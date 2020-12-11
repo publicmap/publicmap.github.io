@@ -494,9 +494,12 @@
     right: 10px;
     bottom: 10px;
   }
-  section {
-    z-index: -1;
-  }
+section{
+  position: absolute;
+    left: 46px;
+    top: 12px;
+    z-index: 99;
+}
   span.block {
     padding: 0 4px;
     background-color: rgba(255, 255, 255, 0.5);
@@ -541,19 +544,19 @@
   }
 </style>
 
-<Panel>
-  <section class="uk-padding-small">
-    <h1 class="uk-no-margin">
-      <span class="block">{settings.map.filter.iso_3166_1_label}</span> {mode}
-    </h1>
+<section>
+<h1 class="uk-no-margin uk-float-left">
+  <span class="block">{settings.map.filter.iso_3166_1_label}</span>
+</h1>
+</section>
+
     <!-- <Geocoder
     bind:this={geocoder}
     accessToken={settings.map.accessToken}
     options={{ position: 'top-right',localGeocoder: forwardGeocoder, countries: settings.map.filter.iso_3166_1 ? settings.map.filter.iso_3166_1.toLocaleLowerCase() : '' }}
     placeholder={'Find a place'}
     on:result={onGeocoderResult} /> -->
-  </section>
-</Panel>
+
 
 <div id="map">
   <Map
