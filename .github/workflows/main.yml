@@ -23,4 +23,4 @@ jobs:
       with:
         ACCESS_TOKEN: ${{ secrets.planemad_repo }}
         BRANCH: gh-pages
-        FOLDER: __sapper__/export/atlas
+        FOLDER: __sapper__/export
