@@ -1,8 +1,8 @@
-import posts from './_posts.js';
+import countires from './_countries.js';
 
 const lookup = new Map();
-posts.forEach(post => {
-	lookup.set(post.slug, JSON.stringify(post));
+countires.forEach(country => {
+	lookup.set(country.slug, JSON.stringify(country));
 });
 
 export function get(req, res, next) {

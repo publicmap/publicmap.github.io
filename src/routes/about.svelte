@@ -1,20 +1,26 @@
 <script>
-  import Panel from "../components/Panel.svelte";
-  import Map from "../components/Map.svelte";
 
-function mapProgram(map){
-	console.log(map);
-}
 </script>
 
 <svelte:head>
-  <title>About</title>
+  <title>About publicmap</title>
 </svelte:head>
 
-<Panel>
-  <h1>About</h1>
+<div class="uk-padding">
+  <h1>publicmap.github.io</h1>
 
-  <p>This is the 'about' page. There's not much here.</p>
-</Panel>
+  <p> 
+    Map are one of the earliest scientific tools of humans and remains one of the most educative tools to help understand our relationship with the land. Public map is a tool to support that cause.
+  </p>
 
-<Map program={mapProgram}/>
+  <h3>This map is built by the public</h3>
+  <ul>
+    <li>Since 2004, over 6 million people have formed a community to collectively create an <a href="https://www.openstreetmap.org/">Open Street Map</a> of earth.</li>
+    <li>Since 2001, over 93 million people have helped collect the <a href="https://en.wikipedia.org/wiki/Wikipedia">sum of human knowledge</a>.</li>
+  </ul>
+
+  <h2>Source code</h2>
+
+  Make publicmap better by <a href="https://github.com/publicmap/publicmap.github.io/discussions">contributing ideas</a> or forking the <a href=https://github.com/publicmap/publicmap.github.io>source code</a>. 
+</div>
+

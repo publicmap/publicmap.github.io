@@ -2,11 +2,11 @@
 	export async function preload({ params }) {
 		// the `slug` parameter is available because
 		// this file is called [slug].svelte
-		const res = await this.fetch(`blog/${params.slug}.json`);
+		const res = await this.fetch(`place/${params.slug}.json`);
 		const data = await res.json();
 
 		if (res.status === 200) {
-			return { post: data };
+			return { country: data };
 		} else {
 			this.error(res.status, data.message);
 		}
@@ -14,7 +14,7 @@
 </script>
 
 <script>
-	export let post;
+	export let country;
 </script>
 
 <style>
@@ -54,11 +54,13 @@
 </style>
 
 <svelte:head>
-	<title>{post.title}</title>
+	<title>{country.title}</title>
 </svelte:head>
 
-<h1>{post.title}</h1>
+<div class="uk-padding">
+	<h1>{country.title}</h1>
 
-<div class="content">
-	{@html post.html}
+	<div class="content">
+		{@html country.html}
+	</div>
 </div>

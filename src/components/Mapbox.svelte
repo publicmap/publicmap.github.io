@@ -6,6 +6,11 @@
   import TitleControl from "../components/Mapbox/TitleControl.svelte";
   import { contextKey } from "./mapbox.js";
 
+  import { stores } from '@sapper/app';
+  const { preloading, page, session } = stores();
+  
+  $: mode = $page.query.mode;
+
   const { GeolocateControl, NavigationControl, ScaleControl } = controls;
 
   import countries from "../data/mapbox-countries-v1.json";
@@ -33,6 +38,8 @@
       worldview: "US", // Set worldview to use for disputed areas
       style: "mapbox://styles/planemad/ck7p3wxmp0q571imu99elwqs1",
       style: "mapbox://styles/planemad/ckgopajx83l581bo6qr5l86yg",
+      style: "mapbox://styles/planemad/ckd42fwa20n531iqrewerwla1",
+      // style: "https://cdn.jsdelivr.net/gh/osm-in/mapbox-gl-styles@latest/osm-mapnik.json",
       // ckgopajx83l581bo6qr5l86yg
       locationContext: null,
       filter: {
@@ -537,7 +544,7 @@
 <Panel>
   <section class="uk-padding-small">
     <h1 class="uk-no-margin">
-      <span class="block">{settings.map.filter.iso_3166_1_label}</span>
+      <span class="block">{settings.map.filter.iso_3166_1_label}</span> {mode}
     </h1>
     <!-- <Geocoder
     bind:this={geocoder}
