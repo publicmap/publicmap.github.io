@@ -4,11 +4,12 @@
   import { onMount, createEventDispatcher, setContext } from "svelte";
   import RulerControl from "../components/Mapbox/RulerControl.svelte";
   import TitleControl from "../components/Mapbox/TitleControl.svelte";
+  import StylesControl from "../components/Mapbox/StylesControl.svelte";
   import { contextKey } from "./mapbox.js";
 
-  import { stores } from '@sapper/app';
+  import { stores } from "@sapper/app";
   const { preloading, page, session } = stores();
-  
+
   $: mode = $page.query.mode;
 
   const { GeolocateControl, NavigationControl, ScaleControl } = controls;
@@ -36,9 +37,35 @@
       accessToken:
         "pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ",
       worldview: "US", // Set worldview to use for disputed areas
-      style: "mapbox://styles/planemad/ck7p3wxmp0q571imu99elwqs1",
-      style: "mapbox://styles/planemad/ckgopajx83l581bo6qr5l86yg",
-      style: "mapbox://styles/planemad/ckd42fwa20n531iqrewerwla1",
+      style: "Railway",
+      styles: [
+        {
+          label: "Streets",
+          styleName: "Mapbox Streets",
+          styleUrl: "mapbox://styles/mapbox/streets-v9",
+        },
+        {
+          label: "Satellite",
+          styleName: "Satellite",
+          styleUrl: "mapbox://styles/planemad/ckgopajx83l581bo6qr5l86yg",
+        },
+        {
+          label: "Railway",
+          styleName: "Railway",
+          styleUrl: "mapbox://styles/planemad/ck7p3wxmp0q571imu99elwqs1",
+        },
+        {
+          label: "Hydrology",
+          styleName: "Hydrology",
+          styleUrl: "mapbox://styles/planemad/ckd42fwa20n531iqrewerwla1",
+        },
+        {
+          label: "OpenStreetMap",
+          styleName: "OpenStreetMap",
+          styleUrl:
+            "https://cdn.jsdelivr.net/gh/osm-in/mapbox-gl-styles@latest/osm-mapnik-india-v8.json",
+        },
+      ],
       // style: "https://cdn.jsdelivr.net/gh/osm-in/mapbox-gl-styles@latest/osm-mapnik.json",
       // ckgopajx83l581bo6qr5l86yg
       locationContext: null,
@@ -51,13 +78,15 @@
     },
   };
 
+  
+
   function onGeocoderResult(e) {
-    console.log(e.detail.result.center);
+    // console.log(e.detail.result.center);
     map.setCenter(e.detail.result.center);
   }
 
   function onGeolocate(e) {
-    console.log(e.detail);
+    // console.log(e.detail);
   }
 
   function onMapReady(e) {
@@ -67,6 +96,12 @@
     getLocationContext(e);
 
     initMap();
+  }
+
+  function onStyleChange(e) {
+    map.on("styledata", function () {
+      initMap();
+    });
   }
 
   var customData = {
@@ -179,6 +214,20 @@
     type: "FeatureCollection",
   };
 
+  onMount(() => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href =
+      "https://raw.githack.com/bravecow/mapbox-gl-controls/master/theme.css";
+
+    document.body.appendChild(link);
+
+    return () => {
+      map.remove();
+      link.parentNode.removeChild(link);
+    };
+  });
+
   function getLocationContext(e) {
     let querylngLat = map.getCenter();
 
@@ -192,7 +241,6 @@
     fetch(reverseGeocodingUrl)
       .then((resp) => resp.json())
       .then((data) => {
-        console.log(data);
         settings.map.locationContext = data;
         settings.map.filter.iso_3166_1_label =
           data.features[data.features.length - 1][
@@ -205,126 +253,125 @@
       });
   }
 
-  function updateMapFilter() {
-    styleMap();
-  }
-
   // Style the map to highlight a country
-  function styleMap(map) {
-    let iso_3166_1 = settings.map.filter.iso_3166_1.toUpperCase();
+  function styleMap() {
 
-    // console.log(map.getMap())
+    if (false) {
+      let iso_3166_1 = settings.map.filter.iso_3166_1.toUpperCase();
 
-    // Hide country labels
-    [
-      "country-label",
-      "settlement-minor-label",
-      "settlement-major-label",
-      "poi-label",
-      "water-point-label",
-      "water-line-label",
-      "waterway-label",
-      "water-line-label",
-      "waterway-label",
-      "natural-point-label",
-      "natural-line-label",
-      "roads",
-    ].forEach((layerId) =>
-      map.setLayoutProperty(layerId, "visibility", "visible")
-    );
+      // console.log(map.getMap())
 
-    // Mask country boundary
-    map.setPaintProperty("country-boundaries", "fill-color", [
-      "case",
-      ["match", ["get", "iso_3166_1"], [iso_3166_1], true, false],
-      "hsla(0, 0%, 94%, 0)",
-      ["match", ["get", "disputed"], ["true"], true, false],
-      "hsla(36, 0%, 10%, 0.05)",
-      "hsla(36, 0%, 100%, 0.89)",
-    ]);
-
-    // Style country outline and internal boundaries
-    map.setPaintProperty("country-boundaries-outline", "line-color", [
-      "match",
-      ["get", "iso_3166_1"],
-      iso_3166_1,
-      "orange",
-      "hsla(0, 0%, 100%, 0)",
-    ]);
-
-    map.setPaintProperty("admin-boundaries-line", "line-color", [
-      "case",
-      ["match", ["get", "iso_3166_1"], [iso_3166_1], true, false],
-      "hsl(0, 0%, 100%)",
-      ["match", ["get", "disputed"], ["true"], true, false],
-      "hsla(0, 0%, 82%,0.5)",
+      // Hide country labels
       [
+        "country-label",
+        "settlement-minor-label",
+        "settlement-major-label",
+        "poi-label",
+        "water-point-label",
+        "water-line-label",
+        "waterway-label",
+        "water-line-label",
+        "waterway-label",
+        "natural-point-label",
+        "natural-line-label",
+        "roads",
+      ].forEach((layerId) =>
+        map.setLayoutProperty(layerId, "visibility", "visible")
+      );
+
+      // Mask country boundary
+      map.setPaintProperty("country-boundaries", "fill-color", [
         "case",
-        ["==", ["get", "admin_level"], 0],
-        "hsla(0, 0%, 66%,0.5)",
-        "hsla(0, 0%, 66%,0)",
-      ],
-    ]);
+        ["match", ["get", "iso_3166_1"], [iso_3166_1], true, false],
+        "hsla(0, 0%, 94%, 0)",
+        ["match", ["get", "disputed"], ["true"], true, false],
+        "hsla(36, 0%, 10%, 0.05)",
+        "hsla(36, 0%, 100%, 0.89)",
+      ]);
 
-    map.setLayoutProperty("country-label", "symbol-sort-key", [
-      "match",
-      ["get", "iso_3166_1"],
-      iso_3166_1,
-      0,
-      1,
-    ]);
+      // Style country outline and internal boundaries
+      map.setPaintProperty("country-boundaries-outline", "line-color", [
+        "match",
+        ["get", "iso_3166_1"],
+        iso_3166_1,
+        "orange",
+        "hsla(0, 0%, 100%, 0)",
+      ]);
 
-    map.setLayoutProperty("settlement-minor-label", "symbol-sort-key", [
-      "match",
-      ["get", "iso_3166_1"],
-      iso_3166_1,
-      0,
-      1,
-    ]);
+      map.setPaintProperty("admin-boundaries-line", "line-color", [
+        "case",
+        ["match", ["get", "iso_3166_1"], [iso_3166_1], true, false],
+        "hsl(0, 0%, 100%)",
+        ["match", ["get", "disputed"], ["true"], true, false],
+        "hsla(0, 0%, 82%,0.5)",
+        [
+          "case",
+          ["==", ["get", "admin_level"], 0],
+          "hsla(0, 0%, 66%,0.5)",
+          "hsla(0, 0%, 66%,0)",
+        ],
+      ]);
 
-    // Highlight matching country and city labels
-    map.setPaintProperty("country-label", "text-opacity", [
-      "match",
-      ["get", "iso_3166_1"],
-      iso_3166_1,
-      1,
-      0.3,
-    ]);
-    map.setPaintProperty("settlement-minor-label", "text-opacity", [
-      "match",
-      ["get", "iso_3166_1"],
-      iso_3166_1,
-      1,
-      0.2,
-    ]);
-    map.setPaintProperty("settlement-major-label", "text-opacity", [
-      "match",
-      ["get", "iso_3166_1"],
-      iso_3166_1,
-      1,
-      0.2,
-    ]);
-    map.setPaintProperty("settlement-minor-label", "icon-opacity", [
-      "match",
-      ["get", "iso_3166_1"],
-      iso_3166_1,
-      1,
-      0.1,
-    ]);
-    map.setPaintProperty("settlement-major-label", "icon-opacity", [
-      "match",
-      ["get", "iso_3166_1"],
-      iso_3166_1,
-      1,
-      0.1,
-    ]);
-    map.setPaintProperty("roads", "line-opacity", [
-      "match",
-      ["get", "iso_3166_1"],
-      iso_3166_1,
-      1,
-      0,
-    ]);
+      map.setLayoutProperty("country-label", "symbol-sort-key", [
+        "match",
+        ["get", "iso_3166_1"],
+        iso_3166_1,
+        0,
+        1,
+      ]);
+
+      map.setLayoutProperty("settlement-minor-label", "symbol-sort-key", [
+        "match",
+        ["get", "iso_3166_1"],
+        iso_3166_1,
+        0,
+        1,
+      ]);
+
+      // Highlight matching country and city labels
+      map.setPaintProperty("country-label", "text-opacity", [
+        "match",
+        ["get", "iso_3166_1"],
+        iso_3166_1,
+        1,
+        0.3,
+      ]);
+      map.setPaintProperty("settlement-minor-label", "text-opacity", [
+        "match",
+        ["get", "iso_3166_1"],
+        iso_3166_1,
+        1,
+        0.2,
+      ]);
+      map.setPaintProperty("settlement-major-label", "text-opacity", [
+        "match",
+        ["get", "iso_3166_1"],
+        iso_3166_1,
+        1,
+        0.2,
+      ]);
+      map.setPaintProperty("settlement-minor-label", "icon-opacity", [
+        "match",
+        ["get", "iso_3166_1"],
+        iso_3166_1,
+        1,
+        0.1,
+      ]);
+      map.setPaintProperty("settlement-major-label", "icon-opacity", [
+        "match",
+        ["get", "iso_3166_1"],
+        iso_3166_1,
+        1,
+        0.1,
+      ]);
+      map.setPaintProperty("roads", "line-opacity", [
+        "match",
+        ["get", "iso_3166_1"],
+        iso_3166_1,
+        1,
+        0,
+      ]);
+    }
   }
 
   function forwardGeocoder(query) {
@@ -364,102 +411,156 @@
     //       traceRequest.send(null);
   }
 
-  function initMap() {
-    setWorldViewFilter(
-      [
-        "country-boundaries",
-        "admin-boundaries-line",
-        "country-boundaries-outline",
-      ],
-      "IN"
-    );
-
-    map.addSource("mapbox-dem", {
-      type: "raster-dem",
-      url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-      tileSize: 512,
-      maxzoom: 14,
-    });
-    // add the DEM source as a terrain layer with exaggerated height
-    map.setTerrain({
-      source: "mapbox-dem",
-      exaggeration: [
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        1,
-        200,
-        3,
-        40,
-        5,
-        10,
-        10,
-        4,
-        12,
-        2,
-        16,
-        1,
-      ],
-    });
-
-    // Insert the layer beneath any symbol layer.
-    var layers = map.getStyle().layers;
-
-    var labelLayerId;
-    for (var i = 0; i < layers.length; i++) {
-      if (layers[i].type === "symbol" && layers[i].layout["text-field"]) {
-        labelLayerId = layers[i].id;
-        break;
-      }
+  function initMap(style) {
+    if (false) {
+      setWorldViewFilter(
+        [
+          "country-boundaries",
+          "admin-boundaries-line",
+          "country-boundaries-outline",
+        ],
+        "IN"
+      );
     }
 
-    map.addLayer(
-      {
-        id: "3d-buildings",
-        source: "composite",
-        "source-layer": "building",
-        filter: ["==", "extrude", "true"],
-        type: "fill-extrusion",
-        minzoom: 15,
+    // Add 3D terrain
+    // https://docs.mapbox.com/mapbox-gl-js/example/add-terrain/
+    if (!map.getSource("mapbox-dem")) {
+      map.addSource("mapbox-dem", {
+        type: "raster-dem",
+        url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+        tileSize: 512,
+        maxzoom: 14,
+      });
+      // add the DEM source as a terrain layer with exaggerated height
+      map.setTerrain({
+        source: "mapbox-dem",
+        exaggeration: [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          1,
+          200,
+          3,
+          40,
+          5,
+          10,
+          10,
+          4,
+          12,
+          2,
+          16,
+          1,
+        ],
+      });
+    }
+
+    // Add 3D hillshade
+    // https://docs.mapbox.com/mapbox-gl-js/example/hillshade/
+
+    if (!map.getSource("3d-hillshade")) {
+      map.addSource("3d-hillshade", {
+        type: "raster-dem",
+        url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+        tileSize: 512,
+        maxzoom: 14,
+      });
+
+      map.addLayer({
+        id: "3d-hillshade",
+        source: "3d-hillshade",
+        type: "hillshade",
         paint: {
-          "fill-extrusion-color": "#aaa",
-
-          // use an 'interpolate' expression to add a smooth transition effect to the
-          // buildings as the user zooms in
-          "fill-extrusion-height": [
+          "hillshade-shadow-color": "#0f0f0f",
+          "hillshade-highlight-color": "#ffffff",
+          "hillshade-accent-color": "#625e3c",
+          "hillshade-exaggeration": [
             "interpolate",
             ["linear"],
             ["zoom"],
-            15,
-            0,
-            15.05,
-            ["get", "height"],
+            4,
+            0.5,
+            12,
+            0.2,
+            20,
+            0.1,
           ],
-          "fill-extrusion-base": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            15,
-            0,
-            15.05,
-            ["get", "min_height"],
-          ],
-          "fill-extrusion-opacity": 0.8,
+          "hillshade-shadow-color": "#0f0f0f",
         },
-      },
-      labelLayerId
-    );
+      });
+    }
 
-    // add a sky layer that will show when the map is highly pitched
-    map.addLayer({
-      id: "sky",
-      type: "sky",
-      paint: {
-        "sky-type": "atmosphere",
-        "sky-atmosphere-sun": [0.0, 0.0],
-        "sky-atmosphere-sun-intensity": 2,
-      },
-    });
+    // Add 3D buildings
+    // https://docs.mapbox.com/mapbox-gl-js/example/add-terrain/
+    if (!map.getLayer("3d-buildings")) {
+      if (!map.getSource("composite")) {
+        map.addSource("composite", {
+          type: "vector",
+          url: "mapbox://mapbox.mapbox-streets-v8",
+        });
+      }
+
+      // Insert the layer beneath any symbol layer.
+      var layers = map.getStyle().layers;
+
+      var labelLayerId;
+      for (var i = 0; i < layers.length; i++) {
+        if (layers[i].type === "symbol" && layers[i].layout["text-field"]) {
+          labelLayerId = layers[i].id;
+          break;
+        }
+      }
+
+      map.addLayer(
+        {
+          id: "3d-buildings",
+          source: "composite",
+          "source-layer": "building",
+          filter: ["==", "extrude", "true"],
+          type: "fill-extrusion",
+          minzoom: 15,
+          paint: {
+            "fill-extrusion-color": "#aaa",
+
+            // use an 'interpolate' expression to add a smooth transition effect to the
+            // buildings as the user zooms in
+            "fill-extrusion-height": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              15,
+              0,
+              15.05,
+              ["get", "height"],
+            ],
+            "fill-extrusion-base": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              15,
+              0,
+              15.05,
+              ["get", "min_height"],
+            ],
+            "fill-extrusion-opacity": 0.8,
+          },
+        },
+        labelLayerId
+      );
+    }
+
+    if (!map.getLayer("sky")) {
+      // add a sky layer that will show when the map is highly pitched
+      map.addLayer({
+        id: "sky",
+        type: "sky",
+        paint: {
+          "sky-type": "atmosphere",
+          "sky-atmosphere-sun": [0.0, 0.0],
+          "sky-atmosphere-sun-intensity": 2,
+        },
+      });
+    }
   }
 
   function setWorldViewFilter(layers, worldView) {
@@ -494,23 +595,16 @@
     right: 10px;
     bottom: 10px;
   }
-section{
-  position: absolute;
+  section {
+    position: absolute;
     left: 46px;
     top: 12px;
     z-index: 99;
-}
+  }
   span.block {
     padding: 0 4px;
     background-color: rgba(255, 255, 255, 0.5);
   }
-  /* :global(#map .mapboxgl-control-container > *) {
-    opacity: 0.5;
-    z-index: 10;
-  }
-  :global(#map:hover .mapboxgl-control-container > *) {
-    opacity: 1;
-  } */
 
   :global(.mapboxgl-control-container > * > :not(.mapboxgl-ctrl-attrib)) {
     opacity: 0.2;
@@ -545,36 +639,38 @@ section{
 </style>
 
 <section>
-<h1 class="uk-no-margin uk-float-left">
-  <span class="block">{settings.map.filter.iso_3166_1_label}</span>
-</h1>
+  <h1 class="uk-no-margin uk-float-left">
+    <span class="block">{settings.map.filter.iso_3166_1_label}</span>
+  </h1>
 </section>
 
-    <!-- <Geocoder
+<!-- <Geocoder
     bind:this={geocoder}
     accessToken={settings.map.accessToken}
     options={{ position: 'top-right',localGeocoder: forwardGeocoder, countries: settings.map.filter.iso_3166_1 ? settings.map.filter.iso_3166_1.toLocaleLowerCase() : '' }}
     placeholder={'Find a place'}
     on:result={onGeocoderResult} /> -->
 
-
 <div id="map">
   <Map
     bind:this={mapbox}
     accessToken={settings.map.accessToken}
-    style={settings.map.style}
+    style={settings.map.styles[0].styleUrl}
     options={{ hash: true, attributionControl: true }}
     on:ready={onMapReady}
     on:recentre={getLocationContext}
     version="v2.0.0">
+    <StylesControl styles={settings.map.styles} on:change={onStyleChange} />
+
     <GeolocateControl
       position="top-right"
       options={{ trackUserLocation: true }}
       on:geolocate={onGeolocate} />
+
     <NavigationControl />
 
-    <ScaleControl />
-    <RulerControl />
+    <ScaleControl position="bottom-left" />
+    <RulerControl position="bottom-left" />
     <TitleControl />
   </Map>
 </div>
