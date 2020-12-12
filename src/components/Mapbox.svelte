@@ -655,7 +655,7 @@
   <Map
     bind:this={mapbox}
     accessToken={settings.map.accessToken}
-    style={settings.map.styles[0].styleUrl}
+    style={settings.map.styles[4].styleUrl}
     options={{ hash: true, attributionControl: true }}
     on:ready={onMapReady}
     on:recentre={getLocationContext}
