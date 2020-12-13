@@ -10,7 +10,7 @@
   import { stores } from "@sapper/app";
   const { preloading, page, session } = stores();
 
-  $: mode = $page.query.mode;
+  $: style = $page.query.style;
 
   const { GeolocateControl, NavigationControl, ScaleControl } = controls;
 
@@ -45,9 +45,9 @@
           styleUrl: "mapbox://styles/mapbox/streets-v9",
         },
         {
-          label: "Satellite",
-          styleName: "Satellite",
-          styleUrl: "mapbox://styles/planemad/ckgopajx83l581bo6qr5l86yg",
+          label: "Boundaries",
+          styleName: "Boundaries",
+          styleUrl: "mapbox://styles/planemad/ckimruzo31c1f17mejyp2a2go",
         },
         {
           label: "Railway",
@@ -99,6 +99,11 @@
   }
 
   function onStyleChange(e) {
+
+    style = e.detail.style.label;
+
+    console.log(style)
+
     map.on("styledata", function () {
       initMap();
     });
