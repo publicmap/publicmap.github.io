@@ -10,8 +10,6 @@
   import { stores } from "@sapper/app";
   const { preloading, page, session } = stores();
 
-  $: style = $page.query.style;
-
   const { GeolocateControl, NavigationControl, ScaleControl } = controls;
 
   import countries from "../data/mapbox-countries-v1.json";
@@ -29,6 +27,7 @@
       language: "en",
       fallbackLanguage: "en", // en es ar ru zh pt
       location: {
+        iso_3166_1 : null,
         geoip: null,
         gps: null,
       },
@@ -65,6 +64,11 @@
           styleUrl:
             "https://cdn.jsdelivr.net/gh/osm-in/mapbox-gl-styles@latest/osm-mapnik-india-v8.json",
         },
+        {
+          label: "Tourist",
+          srtyleName: "Tourist",
+          styleUrl: "mapbox://styles/planemad/ckhijjwug10ht19mjwvno5o38",
+        },
       ],
       // style: "https://cdn.jsdelivr.net/gh/osm-in/mapbox-gl-styles@latest/osm-mapnik.json",
       // ckgopajx83l581bo6qr5l86yg
@@ -78,10 +82,24 @@
     },
   };
 
-  
+  //
+  // Define URL query params
+  //
+
+  $: mapStyleLabel =
+    settings.map.styles.map((s) => s.label).indexOf($page.query.map) > -1
+      ? $page.query.map
+      : settings.map.style;
+  $: mapStyleUrl = $page.query.style || settings.map.styles.filter((s) => s.label == mapStyleLabel)[0].styleUrl; // style=mapbox://styles/planemad/ckhijjwug10ht19mjwvno5o38
+  $: terrainExaggeration = $page.query.terrain || 2;
+  $: place = $page.query.place || "";
+  $: settings.map.worldview = $page.query.worldview || settings.map.worldview;
+
+  //
+  // Map state change handers
+  //
 
   function onGeocoderResult(e) {
-    // console.log(e.detail.result.center);
     map.setCenter(e.detail.result.center);
   }
 
@@ -92,17 +110,32 @@
   function onMapReady(e) {
     map = mapbox.getMap();
 
-    detectUserSettings();
     getLocationContext(e);
 
     initMap();
   }
 
   function onStyleChange(e) {
+    mapStyleLabel = e.detail.style.label;
 
-    style = e.detail.style.label;
+    //Update url
+    // https://www.30secondsofcode.org/blog/s/javascript-modify-url-without-reload
 
-    console.log(style)
+    let url = window.location
+
+    console.log(url.href)
+    
+    // console.log('a,',url.replace($page.query.map,mapStyleLabel));
+
+    const nextURL = 'a' ;
+
+    
+
+    const nextTitle = "Public Map";
+    const nextState = { additionalInformation: "Updated the URL with JS" };
+    window.history.pushState(nextState, nextTitle, nextURL);
+
+   
 
     map.on("styledata", function () {
       initMap();
@@ -110,112 +143,7 @@
   }
 
   var customData = {
-    features: [
-      {
-        type: "Feature",
-        properties: {
-          title: "Lincoln Park",
-          description: "A northside park that is home to the Lincoln Park Zoo",
-        },
-        geometry: {
-          coordinates: [-87.637596, 41.940403],
-          type: "Point",
-        },
-      },
-      {
-        type: "Feature",
-        properties: {
-          title: "Burnham Park",
-          description: "A lakefront park on Chicago's south side",
-        },
-        geometry: {
-          coordinates: [-87.603735, 41.829985],
-          type: "Point",
-        },
-      },
-      {
-        type: "Feature",
-        properties: {
-          title: "Millennium Park",
-          description:
-            "A downtown park known for its art installations and unique architecture",
-        },
-        geometry: {
-          coordinates: [-87.622554, 41.882534],
-          type: "Point",
-        },
-      },
-      {
-        type: "Feature",
-        properties: {
-          title: "Grant Park",
-          description:
-            "A downtown park that is the site of many of Chicago's favorite festivals and events",
-        },
-        geometry: {
-          coordinates: [-87.619185, 41.876367],
-          type: "Point",
-        },
-      },
-      {
-        type: "Feature",
-        properties: {
-          title: "Humboldt Park",
-          description: "A large park on Chicago's northwest side",
-        },
-        geometry: {
-          coordinates: [-87.70199, 41.905423],
-          type: "Point",
-        },
-      },
-      {
-        type: "Feature",
-        properties: {
-          title: "Douglas Park",
-          description:
-            "A large park near in Chicago's North Lawndale neighborhood",
-        },
-        geometry: {
-          coordinates: [-87.699329, 41.860092],
-          type: "Point",
-        },
-      },
-      {
-        type: "Feature",
-        properties: {
-          title: "Calumet Park",
-          description:
-            "A park on the Illinois-Indiana border featuring a historic fieldhouse",
-        },
-        geometry: {
-          coordinates: [-87.530221, 41.715515],
-          type: "Point",
-        },
-      },
-      {
-        type: "Feature",
-        properties: {
-          title: "Jackson Park",
-          description:
-            "A lakeside park that was the site of the 1893 World's Fair",
-        },
-        geometry: {
-          coordinates: [-87.580389, 41.783185],
-          type: "Point",
-        },
-      },
-      {
-        type: "Feature",
-        properties: {
-          title: "Columbus Park",
-          description: "A large park in Chicago's Austin neighborhood",
-        },
-        geometry: {
-          coordinates: [-87.769775, 41.873683],
-          type: "Point",
-        },
-      },
-    ],
+    features: [],
     type: "FeatureCollection",
   };
 
@@ -227,6 +155,8 @@
 
     document.body.appendChild(link);
 
+    detectUserSettings();
+
     return () => {
       map.remove();
       link.parentNode.removeChild(link);
@@ -234,6 +164,7 @@
   });
 
   function getLocationContext(e) {
+    console.log(mapStyleLabel);
     let querylngLat = map.getCenter();
 
     let reverseGeocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${
@@ -260,7 +191,6 @@
 
   // Style the map to highlight a country
   function styleMap() {
-
     if (false) {
       let iso_3166_1 = settings.map.filter.iso_3166_1.toUpperCase();
 
@@ -400,64 +330,57 @@
   }
 
   function detectUserSettings() {
-    //     fetch('https://www.cloudflare.com/cdn-cgi/trace').then(resp=>resp.json())
-    // .then(data=>console.log(data))
-    // var traceRequest = new XMLHttpRequest();
-    //       traceRequest.open("GET", 'https://www.cloudflare.com/cdn-cgi/trace');
-    //       traceRequest.onreadystatechange = () => {
-    //           if (traceRequest.readyState == XMLHttpRequest.DONE) {
-    //               let worldView = "US"
-    //               if (traceRequest.status == 200) {
-    //                   worldView = traceRequest.responseText.match(/loc=([^\n+]*)/)[1]
-    //                   console.log(worldView)
-    //               }
-    //           }
-    //       }
-    //       traceRequest.send(null);
+    
+    var traceRequest = new XMLHttpRequest();
+    traceRequest.open("GET", "https://www.cloudflare.com/cdn-cgi/trace");
+    traceRequest.onreadystatechange = () => {
+      if (traceRequest.readyState == XMLHttpRequest.DONE) {
+        if (traceRequest.status == 200) {
+          settings.user.location.iso_3166_1 = traceRequest.responseText.match(
+            /loc=([^\n+]*)/
+          )[1];
+        }
+      }
+    };
+    traceRequest.send(null);
   }
 
   function initMap(style) {
-    if (false) {
-      setWorldViewFilter(
-        [
-          "country-boundaries",
-          "admin-boundaries-line",
-          "country-boundaries-outline",
-        ],
-        "IN"
-      );
-    }
+    // if (true) {
+    //   setWorldViewFilter(
+    //     filterStyle('layers', layer => layer["source-layer"] == "country_boundaries"),
+    //     settings.map.worldview
+    //   );
+    // }
 
-    // Add 3D terrain
-    // https://docs.mapbox.com/mapbox-gl-js/example/add-terrain/
-    if (!map.getSource("mapbox-dem")) {
-      map.addSource("mapbox-dem", {
-        type: "raster-dem",
-        url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-        tileSize: 512,
-        maxzoom: 14,
-      });
-      // add the DEM source as a terrain layer with exaggerated height
-      map.setTerrain({
-        source: "mapbox-dem",
-        exaggeration: [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          1,
-          200,
-          3,
-          40,
-          5,
-          10,
-          10,
-          4,
-          12,
-          2,
-          16,
-          1,
-        ],
-      });
+    if (terrainExaggeration > 0) {
+      // Add 3D terrain
+      // https://docs.mapbox.com/mapbox-gl-js/example/add-terrain/
+      if (!map.getSource("mapbox-dem")) {
+        map.addSource("mapbox-dem", {
+          type: "raster-dem",
+          url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+          tileSize: 512,
+          maxzoom: 14,
+        });
+        // add the DEM source as a terrain layer with exaggerated height
+        map.setTerrain({
+          source: "mapbox-dem",
+          exaggeration: [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            1,
+            Math.pow(terrainExaggeration, 3),
+            3,
+            Math.pow(terrainExaggeration, 2),
+            8,
+            Math.pow(terrainExaggeration, 1),
+            14,
+            1,
+          ],
+        });
+      }
     }
 
     // Add 3D hillshade
@@ -568,6 +491,17 @@
     }
   }
 
+  //
+  // Mapbox utility methods
+  //
+
+  // Returns an array of map style layers that match a given filter function
+  function filterStyle(styleObject, filterFn) {
+    return map.getStyle()[styleObject].filter((layer) => {
+      return filterFn ? filterFn(layer) : layer;
+    });
+  }
+
   function setWorldViewFilter(layers, worldView) {
     let worldviewFilter = getWorldviewFilter(worldView);
 
@@ -646,6 +580,7 @@
 <section>
   <h1 class="uk-no-margin uk-float-left">
     <span class="block">{settings.map.filter.iso_3166_1_label}</span>
+    {mapStyleLabel}
   </h1>
 </section>
 
@@ -660,7 +595,7 @@
   <Map
     bind:this={mapbox}
     accessToken={settings.map.accessToken}
-    style={settings.map.styles[4].styleUrl}
+    style={mapStyleUrl}
     options={{ hash: true, attributionControl: true }}
     on:ready={onMapReady}
     on:recentre={getLocationContext}
