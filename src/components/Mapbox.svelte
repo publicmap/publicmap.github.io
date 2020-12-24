@@ -1,11 +1,15 @@
 <script>
-  import Panel from "../components/Panel.svelte";
   import { Map, Geocoder, Marker, controls } from "@beyonk/svelte-mapbox";
   import { onMount, createEventDispatcher, setContext } from "svelte";
   import RulerControl from "../components/Mapbox/RulerControl.svelte";
   import TitleControl from "../components/Mapbox/TitleControl.svelte";
   import StylesControl from "../components/Mapbox/StylesControl.svelte";
   import { contextKey } from "./mapbox.js";
+  import { settings1 } from "./settings.js";
+
+  const queryString = require("query-string");
+
+  console.log(queryString);
 
   import { stores } from "@sapper/app";
   const { preloading, page, session } = stores();
@@ -27,26 +31,21 @@
       language: "en",
       fallbackLanguage: "en", // en es ar ru zh pt
       location: {
-        iso_3166_1 : null,
+        iso_3166_1: null,
         geoip: null,
         gps: null,
       },
     },
     map: {
-      accessToken:
-        "pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ",
+      accessToken: null,
+      attribution: null,
       worldview: "US", // Set worldview to use for disputed areas
-      style: "Railway",
+      style: null,
       styles: [
         {
-          label: "Streets",
-          styleName: "Mapbox Streets",
-          styleUrl: "mapbox://styles/mapbox/streets-v9",
-        },
-        {
-          label: "Boundaries",
-          styleName: "Boundaries",
-          styleUrl: "mapbox://styles/planemad/ckimruzo31c1f17mejyp2a2go",
+          label: "Satellite",
+          styleName: "Mapbox Satellite",
+          styleUrl: "mapbox://styles/mapbox/satellite-v9",
         },
         {
           label: "Railway",
@@ -65,8 +64,8 @@
             "https://cdn.jsdelivr.net/gh/osm-in/mapbox-gl-styles@latest/osm-mapnik-india-v8.json",
         },
         {
-          label: "Tourist",
-          srtyleName: "Tourist",
+          label: "Connectivity",
+          styleName: "Connectivity",
           styleUrl: "mapbox://styles/planemad/ckhijjwug10ht19mjwvno5o38",
         },
       ],
@@ -86,14 +85,22 @@
   // Define URL query params
   //
 
-  $: mapStyleLabel =
-    settings.map.styles.map((s) => s.label).indexOf($page.query.map) > -1
-      ? $page.query.map
-      : settings.map.style;
-  $: mapStyleUrl = $page.query.style || settings.map.styles.filter((s) => s.label == mapStyleLabel)[0].styleUrl; // style=mapbox://styles/planemad/ckhijjwug10ht19mjwvno5o38
-  $: terrainExaggeration = $page.query.terrain || 2;
+  settings.map.style =
+    settings.map.styles.map((s) => s.label).indexOf($page.query.style) > -1
+      ? $page.query.style
+      : "Satellite";
+  $: mapStyleUrl =
+    settings.map.styles.filter((s) => s.label == settings.map.style)[0].styleUrl || $page.query.style; // style=mapbox://styles/planemad/ckhijjwug10ht19mjwvno5o38
+  $: terrainExaggeration = $page.query.terrain || 1.5;
+  $: title = $page.query.title || null;
+  $: description = $page.query.description || null;
   $: place = $page.query.place || "";
   $: settings.map.worldview = $page.query.worldview || settings.map.worldview;
+  $: settings.map.accessToken =
+    $page.query.access_token ||
+    "pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ";
+
+    $: console.log('style upd',settings.map.style);
 
   //
   // Map state change handers
@@ -108,38 +115,30 @@
   }
 
   function onMapReady(e) {
+
     map = mapbox.getMap();
 
     getLocationContext(e);
 
     initMap();
+
   }
 
   function onStyleChange(e) {
-    mapStyleLabel = e.detail.style.label;
 
-    //Update url
+    settings.map.style = e.detail.style.label;
+
+    // Update url
     // https://www.30secondsofcode.org/blog/s/javascript-modify-url-without-reload
-
-    let url = window.location
-
-    console.log(url.href)
-    
-    // console.log('a,',url.replace($page.query.map,mapStyleLabel));
-
-    const nextURL = 'a' ;
-
-    
-
+    const nextURL = `?style=${settings.map.style}${window.location.hash}`;
     const nextTitle = "Public Map";
     const nextState = { additionalInformation: "Updated the URL with JS" };
     window.history.pushState(nextState, nextTitle, nextURL);
 
-   
-
     map.on("styledata", function () {
       initMap();
     });
+
   }
 
   var customData = {
@@ -148,11 +147,11 @@
   };
 
   onMount(() => {
+
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href =
       "https://raw.githack.com/bravecow/mapbox-gl-controls/master/theme.css";
-
     document.body.appendChild(link);
 
     detectUserSettings();
@@ -161,31 +160,38 @@
       map.remove();
       link.parentNode.removeChild(link);
     };
+
   });
 
   function getLocationContext(e) {
-    console.log(mapStyleLabel);
+    
     let querylngLat = map.getCenter();
 
     let reverseGeocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${
       querylngLat.lng
     }%2C${querylngLat.lat}.json?access_token=${
       settings.map.accessToken
-    }&cachebuster=1606707965137&autocomplete=true&worldview=${settings.map.worldview.toLocaleLowerCase()}&types=country%2Cregion%2Cdistrict%2Cpostcode%2Clocality%2Cplace%2Cneighborhood%2Caddress%2Cpoi&language=${
+    }&worldview=${settings.map.worldview.toLocaleLowerCase()}&types=country%2Cregion%2Cdistrict%2Cpostcode%2Clocality%2Cplace%2Cneighborhood%2Caddress%2Cpoi&language=${
       settings.user.language
     }`;
+
     fetch(reverseGeocodingUrl)
       .then((resp) => resp.json())
       .then((data) => {
+        // DEBUG CONTEXT
+        console.log(data);
         settings.map.locationContext = data;
-        settings.map.filter.iso_3166_1_label =
-          data.features[data.features.length - 1][
-            `text_${settings.user.language}`
-          ];
-        settings.map.filter.iso_3166_1 =
-          data.features[data.features.length - 1]["properties"]["short_code"];
+        if (data.features.length) {
+          settings.map.filter.iso_3166_1_label =
+            data.features[data.features.length - 1][
+              `text_${settings.user.language}`
+            ];
+          settings.map.filter.iso_3166_1 =
+            data.features[data.features.length - 1]["properties"]["short_code"];
+        }
 
         styleMap(map);
+
       });
   }
 
@@ -329,8 +335,9 @@
     return matchingFeatures;
   }
 
+  // Detect user country code and browser locale
   function detectUserSettings() {
-    
+
     var traceRequest = new XMLHttpRequest();
     traceRequest.open("GET", "https://www.cloudflare.com/cdn-cgi/trace");
     traceRequest.onreadystatechange = () => {
@@ -341,11 +348,15 @@
           )[1];
         }
       }
+      console.log(countries)
+      console.log(settings.user.location.iso_3166_1)
     };
     traceRequest.send(null);
   }
 
-  function initMap(style) {
+
+  function initMap() {
+
     // if (true) {
     //   setWorldViewFilter(
     //     filterStyle('layers', layer => layer["source-layer"] == "country_boundaries"),
@@ -370,13 +381,15 @@
             "interpolate",
             ["linear"],
             ["zoom"],
+            0,
+            terrainExaggeration * Math.pow(2, 4),
             1,
-            Math.pow(terrainExaggeration, 3),
-            3,
-            Math.pow(terrainExaggeration, 2),
-            8,
-            Math.pow(terrainExaggeration, 1),
-            14,
+            terrainExaggeration * Math.pow(2, 3),
+            2,
+            terrainExaggeration * Math.pow(2, 2),
+            10,
+            terrainExaggeration * Math.pow(2, 1),
+            16,
             1,
           ],
         });
@@ -394,28 +407,33 @@
         maxzoom: 14,
       });
 
-      map.addLayer({
-        id: "3d-hillshade",
-        source: "3d-hillshade",
-        type: "hillshade",
-        paint: {
-          "hillshade-shadow-color": "#0f0f0f",
-          "hillshade-highlight-color": "#ffffff",
-          "hillshade-accent-color": "#625e3c",
-          "hillshade-exaggeration": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            4,
-            0.5,
-            12,
-            0.2,
-            20,
-            0.1,
-          ],
-          "hillshade-shadow-color": "#0f0f0f",
+      let symbolLayers = map
+        .getStyle()
+        .layers.filter((l) => l.type == "symbol");
+      map.addLayer(
+        {
+          id: "3d-hillshade",
+          source: "3d-hillshade",
+          type: "hillshade",
+          paint: {
+            "hillshade-shadow-color": "#0f0f0f",
+            "hillshade-highlight-color": "#ffffff",
+            "hillshade-accent-color": "#625e3c",
+            "hillshade-exaggeration": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              1,
+              0.7,
+              6,
+              0.4,
+              16,
+              0.1,
+            ],
+          },
         },
-      });
+        symbolLayers.length ? symbolLayers[0].id : null
+      );
     }
 
     // Add 3D buildings
@@ -489,6 +507,10 @@
         },
       });
     }
+
+    console.log('init',settings.map.style)
+
+
   }
 
   //
@@ -545,9 +567,25 @@
     background-color: rgba(255, 255, 255, 0.5);
   }
 
-  :global(.mapboxgl-control-container > * > :not(.mapboxgl-ctrl-attrib)) {
-    opacity: 0.2;
-    transition: opacity 2s ease-out;
+  #description {
+    background-color: rgba(255, 255, 255, 0.5);
+    color: #111;
+    padding: 3px;
+  }
+  #description:empty {
+    display: none;
+  }
+
+  :global(.mapboxgl-control-container > * > *) {
+    opacity: 0;
+    transition: opacity 5s ease-out;
+    z-index: 99;
+  }
+  :global(.mapboxgl-ctrl-attrib, .mapboxgl-ctrl-bottom-left
+      > .mapboxgl-ctrl:nth-child(3), .mapboxgl-ctrl-bottom-left
+      > .mapboxgl-ctrl:nth-child(4)) {
+    opacity: 1;
+    transition: opacity 0.1s ease-out;
     z-index: 99;
   }
   :global(.mapboxgl-control-container:hover > * > *) {
@@ -578,10 +616,15 @@
 </style>
 
 <section>
-  <h1 class="uk-no-margin uk-float-left">
-    <span class="block">{settings.map.filter.iso_3166_1_label}</span>
-    {mapStyleLabel}
+  <h1 class="uk-no-margin">
+    <span class="block">
+      {#if settings.pageTitle || settings.map.filter.iso_3166_1}
+      {settings.pageTitle || (settings.map.locationContext.features.length && settings.map.locationContext.features.filter((f) => f.place_type.indexOf('country') > -1)[0].text + '/' + settings.map.locationContext.features.filter((f) => f.place_type.indexOf('region') > -1)[0].text) || ''}
+      {/if}
+    </span>
+    {settings.map.style}
   </h1>
+  <p class="uk-text-lead"><span id="description">{description || ''}</span></p>
 </section>
 
 <!-- <Geocoder
@@ -599,7 +642,7 @@
     options={{ hash: true, attributionControl: true }}
     on:ready={onMapReady}
     on:recentre={getLocationContext}
-    version="v2.0.0">
+    version="v2.0.1">
     <StylesControl styles={settings.map.styles} on:change={onStyleChange} />
 
     <GeolocateControl
@@ -619,6 +662,6 @@
   {#if false && settings.map.filter.iso_3166_1}
     <img
       width="200"
-      src={`https://api.mapbox.com/styles/v1/planemad/ckhw6q1000e0h19pckcjqadsr/static/0,10,0,0/600x300?access_token=pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiemdYSVVLRSJ9.g3lbg_eN0kztmsfIPxa9MQ&amp;setfilter=["all",["any",["in","US",["get","worldview"]],["==","all",["get","worldview"]]],["match",["get","iso_3166_1"],["{settings.map.filter.iso_3166_1.toUpperCase()}"],true,false]]&amp;layer_id=selected-countries`} />
+      src={`https://api.mapbox.com/styles/v1/planemad/ckhw6q1000e0h19pckcjqadsr/static/0,10,0,0/600x300?access_token=${settings.map.accessToken}&amp;setfilter=["all",["any",["in","US",["get","worldview"]],["==","all",["get","worldview"]]],["match",["get","iso_3166_1"],["{settings.map.filter.iso_3166_1.toUpperCase()}"],true,false]]&amp;layer_id=selected-countries`} />
   {/if}
 </div>
