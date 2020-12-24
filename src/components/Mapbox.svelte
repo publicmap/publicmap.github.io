@@ -83,16 +83,19 @@
   // Define URL query params
   //
 
-  $: customAttribution = $page.query.attribution || null
+  $: customAttribution = $page.query.attribution || null;
 
-  settings.map.style = $page.query.style ? 
-    settings.map.styles.map((s) => s.label).indexOf($page.query.style) > -1
+  $: settings.map.style = $page.query.style
+    ? settings.map.styles.map((s) => s.label).indexOf($page.query.style) > -1
       ? $page.query.style
-      : 'Custom' : settings.map.styles[0].styleName;
+      : "Custom"
+    : settings.map.styles[0].label;
 
-  $: mapStyleUrl = settings.map.style == 'Custom' ?
-  $page.query.style
-   : settings.map.styles.filter((s) => s.label == settings.map.style)[0].styleUrl ; // style=mapbox://styles/planemad/ckhijjwug10ht19mjwvno5o38
+  $: settings.map.styleUrl =
+    settings.map.style == "Custom"
+      ? $page.query.style
+      : settings.map.styles.filter((s) => s.label == settings.map.style)[0]
+          .styleUrl; // style=mapbox://styles/planemad/ckhijjwug10ht19mjwvno5o38
 
   $: terrainExaggeration = $page.query.terrain || 1.5;
   $: title = $page.query.title || null;
@@ -124,7 +127,6 @@
   }
 
   function onStyleChange(e) {
-
     settings.map.style = e.detail.style.label;
 
     // Update url
@@ -137,7 +139,6 @@
     map.once("styledata", function (e) {
       initMap();
     });
-
   }
 
   var customData = {
@@ -347,7 +348,6 @@
                 d.description == "dependent territory")
           );
 
-          console.log(countryList);
         }
       }
     };
@@ -357,6 +357,7 @@
 
   function initMap() {
     settings.map.styleName = map.getStyle().name;
+    settings.map.stylesheet = map.style.stylesheet;
 
     // map.addControl(new mapboxgl.AttributionControl());
 
@@ -566,7 +567,7 @@
     background-color: rgba(255, 255, 255, 0.5);
   }
 
-  #description {
+  #description > * {
     background-color: rgba(255, 255, 255, 0.5);
     color: #111;
     padding: 3px;
@@ -622,11 +623,24 @@
       {/if}
     </span>
   </h1>
-  <p class="uk-text-lead">
-    <span id="description">{description || ''}</span>. Map Style
-    {settings.map.styleName}
+  <p id="description" class="uk-text-lead">
+    {#if description}
+    <span>{description}</span> <br />
+    {/if}
+    {#if settings.map.stylesheet}
+    <small>
+      <span>Map Style:
+        <a
+          class="uk-link-text"
+          href={`https://api.mapbox.com/styles/v1/${settings.map.stylesheet.owner}/${settings.map.stylesheet.id}.html?fresh=true&title=copy&access_token=${settings.map.accessToken}${window.location.hash}`}>{settings.map.styleName ? settings.map.styleName + ' by ' + settings.map.stylesheet.owner : 'Loading'}</a></span>
+          
+    </small>
+    {/if}
   </p>
 </section>
+
+https://api.mapbox.com/styles/v1/planemad/ckd42fwa20n531iqrewerwla1.html?fresh=true&title=copy&access_token=pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ#7.87/20.062/75.079
+https://api.mapbox.com/styles/v1/planemad/ckd42fwa20n531iqrewerwla1.html?fresh=true&title=copy&access_token=pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiemdYSVVLRSJ9.g3lbg_eN0kztmsfIPxa9MQ#11.77/37.7553/-77.4834
 
 <!-- <Geocoder
     bind:this={geocoder}
@@ -639,7 +653,7 @@
   <Map
     bind:this={mapbox}
     accessToken={settings.map.accessToken}
-    style={mapStyleUrl}
+    style={settings.map.styleUrl}
     options={{ hash: true, attributionControl: true, customAttribution: customAttribution }}
     on:ready={onMapReady}
     on:recentre={getLocationContext}
