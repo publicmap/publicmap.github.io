@@ -5,20 +5,18 @@
   import TitleControl from "../components/Mapbox/TitleControl.svelte";
   import StylesControl from "../components/Mapbox/StylesControl.svelte";
   import { contextKey } from "./mapbox.js";
-  import { settings1 } from "./settings.js";
+  import { settingsStore } from "./settingsStore.js";
 
   const queryString = require("query-string");
-
-  console.log(queryString);
 
   import { stores } from "@sapper/app";
   const { preloading, page, session } = stores();
 
   const { GeolocateControl, NavigationControl, ScaleControl } = controls;
 
-  import countries from "../data/mapbox-countries-v1.json";
+  import countriesLookup from "../data/mapbox-countries-v1.json";
 
-  let map, geocoder, mapbox;
+  let map, geocoder, mapbox, countryList;
 
   setContext(contextKey, {
     getMap: () => map,
@@ -45,7 +43,7 @@
         {
           label: "Satellite",
           styleName: "Mapbox Satellite",
-          styleUrl: "mapbox://styles/mapbox/satellite-v9",
+          styleUrl: "mapbox://styles/mapbox/satellite-streets-v11",
         },
         {
           label: "Railway",
@@ -85,12 +83,17 @@
   // Define URL query params
   //
 
-  settings.map.style =
+  $: customAttribution = $page.query.attribution || null
+
+  settings.map.style = $page.query.style ? 
     settings.map.styles.map((s) => s.label).indexOf($page.query.style) > -1
       ? $page.query.style
-      : "Satellite";
-  $: mapStyleUrl =
-    settings.map.styles.filter((s) => s.label == settings.map.style)[0].styleUrl || $page.query.style; // style=mapbox://styles/planemad/ckhijjwug10ht19mjwvno5o38
+      : 'Custom' : settings.map.styles[0].styleName;
+
+  $: mapStyleUrl = settings.map.style == 'Custom' ?
+  $page.query.style
+   : settings.map.styles.filter((s) => s.label == settings.map.style)[0].styleUrl ; // style=mapbox://styles/planemad/ckhijjwug10ht19mjwvno5o38
+
   $: terrainExaggeration = $page.query.terrain || 1.5;
   $: title = $page.query.title || null;
   $: description = $page.query.description || null;
@@ -99,8 +102,6 @@
   $: settings.map.accessToken =
     $page.query.access_token ||
     "pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ";
-
-    $: console.log('style upd',settings.map.style);
 
   //
   // Map state change handers
@@ -115,13 +116,11 @@
   }
 
   function onMapReady(e) {
-
     map = mapbox.getMap();
 
     getLocationContext(e);
 
     initMap();
-
   }
 
   function onStyleChange(e) {
@@ -135,7 +134,7 @@
     const nextState = { additionalInformation: "Updated the URL with JS" };
     window.history.pushState(nextState, nextTitle, nextURL);
 
-    map.on("styledata", function () {
+    map.once("styledata", function (e) {
       initMap();
     });
 
@@ -147,7 +146,6 @@
   };
 
   onMount(() => {
-
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href =
@@ -160,11 +158,9 @@
       map.remove();
       link.parentNode.removeChild(link);
     };
-
   });
 
   function getLocationContext(e) {
-    
     let querylngLat = map.getCenter();
 
     let reverseGeocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${
@@ -179,7 +175,8 @@
       .then((resp) => resp.json())
       .then((data) => {
         // DEBUG CONTEXT
-        console.log(data);
+        // console.log(data);
+
         settings.map.locationContext = data;
         if (data.features.length) {
           settings.map.filter.iso_3166_1_label =
@@ -191,7 +188,6 @@
         }
 
         styleMap(map);
-
       });
   }
 
@@ -199,8 +195,6 @@
   function styleMap() {
     if (false) {
       let iso_3166_1 = settings.map.filter.iso_3166_1.toUpperCase();
-
-      // console.log(map.getMap())
 
       // Hide country labels
       [
@@ -337,7 +331,6 @@
 
   // Detect user country code and browser locale
   function detectUserSettings() {
-
     var traceRequest = new XMLHttpRequest();
     traceRequest.open("GET", "https://www.cloudflare.com/cdn-cgi/trace");
     traceRequest.onreadystatechange = () => {
@@ -346,16 +339,26 @@
           settings.user.location.iso_3166_1 = traceRequest.responseText.match(
             /loc=([^\n+]*)/
           )[1];
+
+          countryList = countriesLookup.filter(
+            (d) =>
+              (d.worldview == "all" || d.worldview == settings.mapWorldview) &&
+              (d.description == "sovereign state" ||
+                d.description == "dependent territory")
+          );
+
+          console.log(countryList);
         }
       }
-      console.log(countries)
-      console.log(settings.user.location.iso_3166_1)
     };
+
     traceRequest.send(null);
   }
 
-
   function initMap() {
+    settings.map.styleName = map.getStyle().name;
+
+    // map.addControl(new mapboxgl.AttributionControl());
 
     // if (true) {
     //   setWorldViewFilter(
@@ -507,10 +510,6 @@
         },
       });
     }
-
-    console.log('init',settings.map.style)
-
-
   }
 
   //
@@ -619,12 +618,14 @@
   <h1 class="uk-no-margin">
     <span class="block">
       {#if settings.pageTitle || settings.map.filter.iso_3166_1}
-      {settings.pageTitle || (settings.map.locationContext.features.length && settings.map.locationContext.features.filter((f) => f.place_type.indexOf('country') > -1)[0].text + '/' + settings.map.locationContext.features.filter((f) => f.place_type.indexOf('region') > -1)[0].text) || ''}
+        {settings.pageTitle || (settings.map.locationContext.features.length && settings.map.locationContext.features.filter((f) => f.place_type.indexOf('country') > -1)[0].text + '/' + settings.map.locationContext.features.filter((f) => f.place_type.indexOf('region') > -1)[0].text) || ''}
       {/if}
     </span>
-    {settings.map.style}
   </h1>
-  <p class="uk-text-lead"><span id="description">{description || ''}</span></p>
+  <p class="uk-text-lead">
+    <span id="description">{description || ''}</span>. Map Style
+    {settings.map.styleName}
+  </p>
 </section>
 
 <!-- <Geocoder
@@ -639,7 +640,7 @@
     bind:this={mapbox}
     accessToken={settings.map.accessToken}
     style={mapStyleUrl}
-    options={{ hash: true, attributionControl: true }}
+    options={{ hash: true, attributionControl: true, customAttribution: customAttribution }}
     on:ready={onMapReady}
     on:recentre={getLocationContext}
     version="v2.0.1">
