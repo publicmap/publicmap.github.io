@@ -6,6 +6,7 @@
   import StylesControl from "../components/Mapbox/StylesControl.svelte";
   import { contextKey } from "./mapbox.js";
   import { settingsStore } from "./settingsStore.js";
+  import sanitizeHtml from "sanitize-html";
 
   const queryString = require("query-string");
 
@@ -98,8 +99,8 @@
           .styleUrl; // style=mapbox://styles/planemad/ckhijjwug10ht19mjwvno5o38
 
   $: terrainExaggeration = $page.query.terrain || 1.5;
-  $: title = $page.query.title || null;
-  $: description = $page.query.description || null;
+  $: settings.map.title = $page.query.title || null;
+  $: settings.map.description = $page.query.description || null;
   $: place = $page.query.place || "";
   $: settings.map.worldview = $page.query.worldview || settings.map.worldview;
   $: settings.map.accessToken =
@@ -347,7 +348,6 @@
               (d.description == "sovereign state" ||
                 d.description == "dependent territory")
           );
-
         }
       }
     };
@@ -567,13 +567,24 @@
     background-color: rgba(255, 255, 255, 0.5);
   }
 
+  .yellow-highlight{
+    background-color: rgb(228 255 0 / 59%)
+  }
+  .white-highlight{
+    background-color: rgb(255 255 255 / 40%)
+  }
+  #description{
+    max-width: 500px;
+  }
   #description > * {
-    background-color: rgba(255, 255, 255, 0.5);
     color: #111;
     padding: 3px;
   }
   #description:empty {
     display: none;
+  }
+  :global(#description data) {
+    font-weight: bold;
   }
 
   :global(.mapboxgl-control-container > * > *) {
@@ -618,23 +629,28 @@
 <section>
   <h1 class="uk-no-margin">
     <span class="block">
-      {#if settings.pageTitle || settings.map.filter.iso_3166_1}
-        {settings.pageTitle || (settings.map.locationContext.features.length && settings.map.locationContext.features.filter((f) => f.place_type.indexOf('country') > -1)[0].text + '/' + settings.map.locationContext.features.filter((f) => f.place_type.indexOf('region') > -1)[0].text) || ''}
+      {#if settings.map.title || settings.map.filter.iso_3166_1}
+        {settings.map.title || (settings.map.locationContext.features.length && settings.map.locationContext.features.filter((f) => f.place_type.indexOf('country') > -1)[0].text + '/' + settings.map.locationContext.features.filter((f) => f.place_type.indexOf('region') > -1)[0].text) || ''}
       {/if}
     </span>
   </h1>
   <p id="description" class="uk-text-lead">
-    {#if description}
-    <span>{description}</span> <br />
+    {#if settings.map.description}
+      <span class='yellow-highlight'>{@html 
+      sanitizeHtml(settings.map.description, {
+          allowedAttributes: {
+            data: ['data-lat','data-lng'],
+          },
+        })
+        }</span>
+      <br />
     {/if}
     {#if settings.map.stylesheet}
-    <small>
-      <span>Map Style:
-        <a
-          class="uk-link-text"
-          href={`https://api.mapbox.com/styles/v1/${settings.map.stylesheet.owner}/${settings.map.stylesheet.id}.html?fresh=true&title=copy&access_token=${settings.map.accessToken}${window.location.hash}`}>{settings.map.styleName ? settings.map.styleName + ' by ' + settings.map.stylesheet.owner : 'Loading'}</a></span>
-          
-    </small>
+        <span class='uk-text-meta white-highlight'>Map Style:
+          <a
+            class="uk-link-reset"
+            href={`https://api.mapbox.com/styles/v1/${settings.map.stylesheet.owner}/${settings.map.stylesheet.id}.html?fresh=true&title=copy&access_token=${settings.map.accessToken}${window.location.hash}`}>{settings.map.styleName ? settings.map.styleName + ' by ' + settings.map.stylesheet.owner : 'Loading'}</a></span>
+
     {/if}
   </p>
 </section>
