@@ -639,9 +639,6 @@
   </p>
 </section>
 
-https://api.mapbox.com/styles/v1/planemad/ckd42fwa20n531iqrewerwla1.html?fresh=true&title=copy&access_token=pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ#7.87/20.062/75.079
-https://api.mapbox.com/styles/v1/planemad/ckd42fwa20n531iqrewerwla1.html?fresh=true&title=copy&access_token=pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiemdYSVVLRSJ9.g3lbg_eN0kztmsfIPxa9MQ#11.77/37.7553/-77.4834
-
 <!-- <Geocoder
     bind:this={geocoder}
     accessToken={settings.map.accessToken}
