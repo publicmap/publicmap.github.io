@@ -43,6 +43,8 @@
     },
     map: {
       accessToken: null,
+      title: null,
+      description: null,
       attribution: null,
       worldview: "US", // Set worldview to use for disputed areas
       style: null,
@@ -108,12 +110,13 @@
 
   $: terrainExaggeration = $page.query.terrain || 1.5;
   $: settings.map.title = $page.query.title || null;
-  $: settings.map.description =
-    sanitizeHtml($page.query.description, {
-      allowedAttributes: {
-        data: ["data-lat", "data-lng"],
-      },
-    }) || null;
+  $: settings.map.description = $page.query.description
+    ? sanitizeHtml($page.query.description, {
+        allowedAttributes: {
+          data: ["data-lat", "data-lng"],
+        },
+      })
+    : null;
   $: place = $page.query.place || "";
   $: settings.map.worldview = $page.query.worldview || settings.map.worldview;
   $: settings.map.accessToken =
@@ -152,13 +155,13 @@
   }
 
   function onStyleChange(e) {
-
-    
-
     // Update url
     // https://www.30secondsofcode.org/blog/s/javascript-modify-url-without-reload
-    
-    const nextURL = `${window.location.search}${window.location.hash}`.replace(settings.map.style, e.detail.style.label);
+
+    const nextURL = `${window.location.search}${window.location.hash}`.replace(
+      settings.map.style,
+      e.detail.style.label
+    );
     const nextTitle = "Public Map";
     const nextState = { additionalInformation: "Updated the URL with JS" };
     window.history.pushState(nextState, nextTitle, nextURL);
@@ -508,15 +511,13 @@
     // Add user defined wmts
 
     if (settings.map.source.wmts) {
-
-      const sourceURL = new URL(settings.map.source.wmts)
+      const sourceURL = new URL(settings.map.source.wmts);
 
       map.addSource("wmts", {
         type: "raster",
         tiles: [settings.map.source.wmts],
         tileSize: 256,
-        'attribution':
-`Overlay tiles from <a target="_top" rel="noopener" href="${settings.map.source.wmts}">${sourceURL.hostname}</a>`
+        attribution: `Overlay tiles from <a target="_top" rel="noopener" href="${settings.map.source.wmts}">${sourceURL.hostname}</a>`,
       });
 
       map.addLayer(
@@ -693,9 +694,9 @@
 
 <section id="info-panel" class="uk-position-absolute uk-position-top-left">
   <div class="uk-card uk-card-body uk-card-default uk-card-small uk-card-hover">
-    <h2 class="uk-no-margin uk-heading-divider">
-      {#if settings.map.title}{settings.map.title}{/if}
-    </h2>
+    {#if settings.map.title}
+      <h2 class="uk-no-margin uk-heading-divider">{settings.map.title}</h2>
+    {/if}
 
     <button
       type="button"
