@@ -16,7 +16,7 @@
       class="uk-navbar-toggle"
       uk-navbar-toggle-icon
       href="#"
-      uk-toggle="target: #offcanvas-nav-primary" />
+      uk-toggle="target: #offcanvas-nav-primary" ></a>
   </div>
 </nav>
 

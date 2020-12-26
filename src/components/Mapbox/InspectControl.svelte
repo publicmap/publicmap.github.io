@@ -8,12 +8,12 @@
 	const map = getMap()
 	const mapbox = getMapbox()
 
-	// https://github.com/bravecow/mapbox-gl-controls#ruler-control
-	import RulerControl from 'mapbox-gl-controls/lib/ruler';
+	// import InspectControl from 'mapbox-gl-controls/lib/inspect';
+	import InspectControl from 'mapbox-gl-controls/lib/inspect';
 
 	export let position = 'bottom-right'
 	export const options = {}
 	
-	map.addControl(new RulerControl(options), position)
+	map.addControl(new InspectControl(options), position);
 
 </script>

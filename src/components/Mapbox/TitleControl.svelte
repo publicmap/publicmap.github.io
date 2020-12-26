@@ -10,7 +10,7 @@
 	// https://github.com/bravecow/mapbox-gl-controls#ruler-control
 
 	export let position = "bottom-left";
-	export let options = {};
+	export const options = {};
 
 	// Control implemented as ES6 class
 	const SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'ru', 'zh', 'pt', 'ar', 'ja', 'ko', 'mul'];

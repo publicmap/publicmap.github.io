@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-export const settings1 = writable({
+export const settingsStore = writable({
     title : "Public Map"
 });
 
