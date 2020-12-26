@@ -2,11 +2,14 @@
   import { Map, Geocoder, Marker, controls } from "@beyonk/svelte-mapbox";
   import { onMount, createEventDispatcher, setContext } from "svelte";
   import RulerControl from "../components/Mapbox/RulerControl.svelte";
+  import NavControl from "../components/Mapbox/NavControl.svelte";
+  import InspectControl from "../components/Mapbox/InspectControl.svelte";
   import TitleControl from "../components/Mapbox/TitleControl.svelte";
   import StylesControl from "../components/Mapbox/StylesControl.svelte";
   import { contextKey } from "./mapbox.js";
   import { settingsStore } from "./settingsStore.js";
   import sanitizeHtml from "sanitize-html";
+  import { parse } from "node-html-parser";
 
   const queryString = require("query-string");
 
@@ -25,6 +28,9 @@
   });
 
   export let settings = {
+    fetch: {
+      locationContext: null,
+    },
     user: {
       locale: "en-US",
       language: "en",
@@ -100,12 +106,28 @@
 
   $: terrainExaggeration = $page.query.terrain || 1.5;
   $: settings.map.title = $page.query.title || null;
-  $: settings.map.description = $page.query.description || null;
+  $: settings.map.description =
+    sanitizeHtml($page.query.description, {
+      allowedAttributes: {
+        data: ["data-lat", "data-lng"],
+      },
+    }) || null;
   $: place = $page.query.place || "";
   $: settings.map.worldview = $page.query.worldview || settings.map.worldview;
   $: settings.map.accessToken =
     $page.query.access_token ||
     "pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ";
+
+  const root = parse($page.query.description);
+  settings.map.markers = [];
+  root.querySelectorAll("data").forEach((d) => {
+    settings.map.markers.push({
+      lng: parseInt(d.getAttribute("data-lng")),
+      lat: parseInt(d.getAttribute("data-lat")),
+    });
+  });
+
+  console.log(settings);
 
   //
   // Map state change handers
@@ -173,11 +195,11 @@
       settings.user.language
     }`;
 
-    fetch(reverseGeocodingUrl)
+    settings.fetch.locationContext = fetch(reverseGeocodingUrl)
       .then((resp) => resp.json())
       .then((data) => {
         // DEBUG CONTEXT
-        // console.log(data);
+        console.log(data);
 
         settings.map.locationContext = data;
         if (data.features.length) {
@@ -190,6 +212,8 @@
         }
 
         styleMap(map);
+
+        return data;
       });
   }
 
@@ -545,6 +569,14 @@
       ],
     ];
   }
+
+  //
+  // UI
+  //
+
+  function closeInfoPanel() {
+    document.getElementById("info-panel").style.display = "none";
+  }
 </script>
 
 <style>
@@ -562,32 +594,15 @@
     top: 12px;
     z-index: 99;
   }
-  span.block {
-    padding: 0 4px;
-    background-color: rgba(255, 255, 255, 0.5);
-  }
 
-  .yellow-highlight{
-    background-color: rgb(228 255 0 / 59%)
-  }
-  .white-highlight{
-    background-color: rgb(255 255 255 / 40%)
-  }
-  #description{
-    max-width: 500px;
-  }
-  #description > * {
-    color: #111;
-    padding: 3px;
-  }
-  #description:empty {
-    display: none;
+  :global(.uk-card-default) {
+    background: #ffffffbd;
   }
   :global(#description data) {
     font-weight: bold;
   }
 
-  :global(.mapboxgl-control-container > * > *) {
+  :global(.mapboxgl-control-container > *:not(.mapboxgl-ctrl-bottom-left) > *) {
     opacity: 0;
     transition: opacity 5s ease-out;
     z-index: 99;
@@ -599,7 +614,7 @@
     transition: opacity 0.1s ease-out;
     z-index: 99;
   }
-  :global(.mapboxgl-control-container:hover > * > *) {
+  :global(.mapboxgl-control-container:hover > *:not(.mapboxgl-ctrl-bottom-left) > *) {
     opacity: 1;
     transition: opacity 0.1s ease-in;
   }
@@ -626,33 +641,51 @@
   }
 </style>
 
-<section>
-  <h1 class="uk-no-margin">
-    <span class="block">
-      {#if settings.map.title || settings.map.filter.iso_3166_1}
-        {settings.map.title || (settings.map.locationContext.features.length && settings.map.locationContext.features.filter((f) => f.place_type.indexOf('country') > -1)[0].text + '/' + settings.map.locationContext.features.filter((f) => f.place_type.indexOf('region') > -1)[0].text) || ''}
-      {/if}
-    </span>
-  </h1>
-  <p id="description" class="uk-text-lead">
+<section id="info-panel">
+  <div
+    class="uk-card uk-card-body uk-card-default uk-card-small uk-width-1-3@m uk-card-hover">
+    <h2 class="uk-no-margin uk-heading-divider">
+      {#if settings.map.title}{settings.map.title}{/if}
+    </h2>
+    <button
+      type="button"
+      uk-close
+      style="position:absolute;top:10px;right:10px"
+      on:click|once={closeInfoPanel} />
     {#if settings.map.description}
-      <span class='yellow-highlight'>{@html 
-      sanitizeHtml(settings.map.description, {
+      <p>
+        {@html sanitizeHtml(settings.map.description, {
           allowedAttributes: {
-            data: ['data-lat','data-lng'],
+            data: ['data-lat', 'data-lng'],
           },
-        })
-        }</span>
+        })}
+      </p>
+    {/if}
+    {#if settings.map.filter.iso_3166_1}
+      <span><span uk-icon="icon: world" />
+        {#await settings.fetch.locationContext}
+          <span>...</span>
+        {:then result}
+          {#each result.features as feature}
+            {#if feature.place_type.indexOf('country') > -1 || (feature.place_type.indexOf('region') > -1 && map.getZoom() > 6) || (feature.place_type.indexOf('district') > -1 && map.getZoom() > 9)}
+              <a
+                target="_blank"
+                class="uk-link-reset"
+                href="https://www.wikidata.org/wiki/{feature.properties.wikidata}">
+                {feature.text}</a>{feature.place_type.indexOf('country') == -1 ? ', ' : ''}
+            {/if}
+          {/each}
+        {/await}
+      </span>
       <br />
     {/if}
     {#if settings.map.stylesheet}
-        <span class='uk-text-meta white-highlight'>Map Style:
-          <a
-            class="uk-link-reset"
-            href={`https://api.mapbox.com/styles/v1/${settings.map.stylesheet.owner}/${settings.map.stylesheet.id}.html?fresh=true&title=copy&access_token=${settings.map.accessToken}${window.location.hash}`}>{settings.map.styleName ? settings.map.styleName + ' by ' + settings.map.stylesheet.owner : 'Loading'}</a></span>
-
+      <span>Cartography:
+        <a
+          class="uk-link-reset"
+          href={`https://api.mapbox.com/styles/v1/${settings.map.stylesheet.owner}/${settings.map.stylesheet.id}.html?fresh=true&title=copy&access_token=${settings.map.accessToken}${window.location.hash}`}>{settings.map.styleName ? settings.map.styleName + ' by ' + settings.map.stylesheet.owner : 'Loading'}</a></span>
     {/if}
-  </p>
+  </div>
 </section>
 
 <!-- <Geocoder
@@ -671,18 +704,37 @@
     on:ready={onMapReady}
     on:recentre={getLocationContext}
     version="v2.0.1">
-    <StylesControl styles={settings.map.styles} on:change={onStyleChange} />
 
+    <Marker
+      lat="19"
+      lng="17" />
+
+    <!-- 
+    {#if settings.map.markers.length}
+    {#each settings.map.markers as marker}
+      <Marker
+        lat={marker.lat}
+        lng={marker.lng}
+        color="rgb(255,255,255)"
+        label="some marker label"
+        popupClassName="class-name" />
+    {/each}
+    {/if} -->
+
+    <NavControl position="top-right" />
     <GeolocateControl
       position="top-right"
       options={{ trackUserLocation: true }}
       on:geolocate={onGeolocate} />
 
-    <NavigationControl />
+      
 
+
+    <StylesControl styles={settings.map.styles} on:change={onStyleChange} />
+    <InspectControl />
+      <RulerControl />
     <ScaleControl position="bottom-left" />
-    <RulerControl position="bottom-left" />
-    <TitleControl />
+    
   </Map>
 </div>
 
