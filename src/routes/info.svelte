@@ -10,8 +10,12 @@
   <h1>publicmap.github.io</h1>
 
   <p> 
-    publicmap.github.io can be used by anyone to create a customized map that you can share with the world.
+    Use publicmap.github.io to design a map that you can share with the world.
   </p>
+
+  <h2>How to use</h2>
+
+  <p></p>
 
   <h3>This map is built by the public</h3>
   <ul>

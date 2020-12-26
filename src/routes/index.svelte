@@ -31,7 +31,7 @@
 </style>
 
 <svelte:head>
-  <title>Atlas</title>
+  <title>Public Map</title>
 </svelte:head>
 
 <Mapbox bind:map={mapbox} />

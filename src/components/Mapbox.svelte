@@ -76,12 +76,14 @@
       ],
       // style: "https://cdn.jsdelivr.net/gh/osm-in/mapbox-gl-styles@latest/osm-mapnik.json",
       // ckgopajx83l581bo6qr5l86yg
-      locationContext: null,
-      filter: {
-        iso_3166_1: null,
-        iso_3166_1_label: "...",
-        iso_3166_2: null,
-        iso_3166_2_label: null,
+      locationContext: {
+        text: "",
+        fetch: null,
+        geojson: null,
+      },
+      source: {
+        geojson: null,
+        wmts: null,
       },
     },
   };
@@ -116,7 +118,8 @@
   $: settings.map.worldview = $page.query.worldview || settings.map.worldview;
   $: settings.map.accessToken =
     $page.query.access_token ||
-    "pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ";
+    "pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ"; //
+  $: settings.map.source.wmts = $page.query.wmts;
 
   const root = parse($page.query.description);
   settings.map.markers = [];
@@ -145,19 +148,22 @@
     map = mapbox.getMap();
 
     getLocationContext(e);
-
     initMap();
   }
 
   function onStyleChange(e) {
-    settings.map.style = e.detail.style.label;
+
+    
 
     // Update url
     // https://www.30secondsofcode.org/blog/s/javascript-modify-url-without-reload
-    const nextURL = `?style=${settings.map.style}${window.location.hash}`;
+    
+    const nextURL = `${window.location.search}${window.location.hash}`.replace(settings.map.style, e.detail.style.label);
     const nextTitle = "Public Map";
     const nextState = { additionalInformation: "Updated the URL with JS" };
     window.history.pushState(nextState, nextTitle, nextURL);
+
+    settings.map.style = e.detail.style.label;
 
     map.once("styledata", function (e) {
       initMap();
@@ -195,20 +201,35 @@
       settings.user.language
     }`;
 
-    settings.fetch.locationContext = fetch(reverseGeocodingUrl)
+    settings.map.locationContext.fetch = fetch(reverseGeocodingUrl)
       .then((resp) => resp.json())
       .then((data) => {
         // DEBUG CONTEXT
         console.log(data);
 
-        settings.map.locationContext = data;
+        settings.map.locationContext.geojson = data;
+
         if (data.features.length) {
-          settings.map.filter.iso_3166_1_label =
+          settings.map.locationContext.iso_3166_1_label =
             data.features[data.features.length - 1][
               `text_${settings.user.language}`
             ];
-          settings.map.filter.iso_3166_1 =
+
+          settings.map.locationContext.iso_3166_1 =
             data.features[data.features.length - 1]["properties"]["short_code"];
+
+          data.features.forEach((feature) => {
+            if (
+              feature.place_type.indexOf("country") > -1 ||
+              (feature.place_type.indexOf("region") > -1 &&
+                map.getZoom() > 6) ||
+              (feature.place_type.indexOf("district") > -1 && map.getZoom() > 9)
+            ) {
+              settings.map.locationContext.text +=
+                feature.text +
+                (feature.place_type.indexOf("country") == -1 ? ", " : " ");
+            }
+          });
         }
 
         styleMap(map);
@@ -435,9 +456,10 @@
         maxzoom: 14,
       });
 
-      let symbolLayers = map
+      const symbolLayers = map
         .getStyle()
         .layers.filter((l) => l.type == "symbol");
+
       map.addLayer(
         {
           id: "3d-hillshade",
@@ -464,6 +486,64 @@
       );
     }
 
+    // Find the first label layer in the style so that other layers can be inserted below it
+    const layers = map.getStyle().layers;
+
+    let labelLayerId = null;
+    for (var i = 0; i < layers.length; i++) {
+      if (layers[i].type === "symbol" && layers[i].layout["text-field"]) {
+        labelLayerId = layers[i].id;
+        break;
+      }
+    }
+
+    let lineLayerId = null;
+    for (var i = 0; i < layers.length; i++) {
+      if (layers[i].type === "line") {
+        lineLayerId = layers[i].id;
+        break;
+      }
+    }
+
+    // Add user defined wmts
+
+    if (settings.map.source.wmts) {
+
+      const sourceURL = new URL(settings.map.source.wmts)
+
+      map.addSource("wmts", {
+        type: "raster",
+        tiles: [settings.map.source.wmts],
+        tileSize: 256,
+        'attribution':
+`Overlay tiles from <a target="_top" rel="noopener" href="${settings.map.source.wmts}">${sourceURL.hostname}</a>`
+      });
+
+      map.addLayer(
+        {
+          id: "raster-tiles",
+          type: "raster",
+          source: "wmts",
+          minzoom: 0,
+          maxzoom: 22,
+          paint: {
+            "raster-opacity": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              12,
+              1,
+              14,
+              0.5,
+              18,
+              0.2,
+            ],
+          },
+        },
+        lineLayerId
+      );
+    }
+
     // Add 3D buildings
     // https://docs.mapbox.com/mapbox-gl-js/example/add-terrain/
     if (!map.getLayer("3d-buildings")) {
@@ -472,17 +552,6 @@
           type: "vector",
           url: "mapbox://mapbox.mapbox-streets-v8",
         });
-      }
-
-      // Insert the layer beneath any symbol layer.
-      var layers = map.getStyle().layers;
-
-      var labelLayerId;
-      for (var i = 0; i < layers.length; i++) {
-        if (layers[i].type === "symbol" && layers[i].layout["text-field"]) {
-          labelLayerId = layers[i].id;
-          break;
-        }
       }
 
       map.addLayer(
@@ -495,7 +564,6 @@
           minzoom: 15,
           paint: {
             "fill-extrusion-color": "#aaa",
-
             // use an 'interpolate' expression to add a smooth transition effect to the
             // buildings as the user zooms in
             "fill-extrusion-height": [
@@ -582,6 +650,7 @@
 <style>
   #map {
     height: 100vh;
+    z-index: -1;
   }
   #locator-map {
     position: absolute;
@@ -589,10 +658,10 @@
     bottom: 10px;
   }
   section {
-    position: absolute;
-    left: 46px;
-    top: 12px;
-    z-index: 99;
+    z-index: 1;
+    margin-top: 20px;
+    margin-left: 50px;
+    width: 400px;
   }
 
   :global(.uk-card-default) {
@@ -614,44 +683,26 @@
     transition: opacity 0.1s ease-out;
     z-index: 99;
   }
-  :global(.mapboxgl-control-container:hover > *:not(.mapboxgl-ctrl-bottom-left) > *) {
+  :global(.mapboxgl-control-container:hover
+      > *:not(.mapboxgl-ctrl-bottom-left)
+      > *) {
     opacity: 1;
     transition: opacity 0.1s ease-in;
   }
-  :global(.mapboxgl-ctrl-geocoder) {
-    width: 30px;
-    min-width: 30px;
-  }
-
-  :global(.mapboxgl-ctrl-geocoder .suggestions li, .mapboxgl-ctrl-geocoder
-      div) {
-    display: none;
-  }
-
-  :global(.mapboxgl-ctrl-geocoder:hover) {
-    width: 200px;
-    min-width: inherit;
-    transition: width 0.3s ease-in-out;
-  }
-
-  :global(.mapboxgl-ctrl-geocoder:hover
-      .suggestions
-      li, .mapboxgl-ctrl-geocoder:hover div) {
-    display: inherit;
-  }
 </style>
 
-<section id="info-panel">
-  <div
-    class="uk-card uk-card-body uk-card-default uk-card-small uk-width-1-3@m uk-card-hover">
+<section id="info-panel" class="uk-position-absolute uk-position-top-left">
+  <div class="uk-card uk-card-body uk-card-default uk-card-small uk-card-hover">
     <h2 class="uk-no-margin uk-heading-divider">
       {#if settings.map.title}{settings.map.title}{/if}
     </h2>
+
     <button
       type="button"
       uk-close
       style="position:absolute;top:10px;right:10px"
       on:click|once={closeInfoPanel} />
+
     {#if settings.map.description}
       <p>
         {@html sanitizeHtml(settings.map.description, {
@@ -661,9 +712,10 @@
         })}
       </p>
     {/if}
-    {#if settings.map.filter.iso_3166_1}
+
+    {#if settings.map.locationContext.iso_3166_1}
       <span><span uk-icon="icon: world" />
-        {#await settings.fetch.locationContext}
+        {#await settings.map.locationContext.fetch}
           <span>...</span>
         {:then result}
           {#each result.features as feature}
@@ -678,7 +730,15 @@
         {/await}
       </span>
       <br />
+
+      <!-- <Geocoder
+    bind:this={geocoder}
+    accessToken={settings.map.accessToken}
+    options={{ position: 'top-right',localGeocoder: forwardGeocoder, countries: settings.map.filter.iso_3166_1 ? settings.map.filter.iso_3166_1.toLocaleLowerCase() : '' }}
+    placeholder={settings.map.locationContext.text}
+    on:result={onGeocoderResult} /> -->
     {/if}
+
     {#if settings.map.stylesheet}
       <span>Cartography:
         <a
@@ -687,13 +747,6 @@
     {/if}
   </div>
 </section>
-
-<!-- <Geocoder
-    bind:this={geocoder}
-    accessToken={settings.map.accessToken}
-    options={{ position: 'top-right',localGeocoder: forwardGeocoder, countries: settings.map.filter.iso_3166_1 ? settings.map.filter.iso_3166_1.toLocaleLowerCase() : '' }}
-    placeholder={'Find a place'}
-    on:result={onGeocoderResult} /> -->
 
 <div id="map">
   <Map
@@ -704,37 +757,16 @@
     on:ready={onMapReady}
     on:recentre={getLocationContext}
     version="v2.0.1">
-
-    <Marker
-      lat="19"
-      lng="17" />
-
-    <!-- 
-    {#if settings.map.markers.length}
-    {#each settings.map.markers as marker}
-      <Marker
-        lat={marker.lat}
-        lng={marker.lng}
-        color="rgb(255,255,255)"
-        label="some marker label"
-        popupClassName="class-name" />
-    {/each}
-    {/if} -->
-
-    <NavControl position="top-right" />
+    <NavControl />
     <GeolocateControl
       position="top-right"
       options={{ trackUserLocation: true }}
       on:geolocate={onGeolocate} />
 
-      
-
-
     <StylesControl styles={settings.map.styles} on:change={onStyleChange} />
     <InspectControl />
-      <RulerControl />
+    <RulerControl />
     <ScaleControl position="bottom-left" />
-    
   </Map>
 </div>
 
