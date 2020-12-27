@@ -92,6 +92,7 @@
       },
       camera: {
         rotate: false,
+        blur: false,
       },
     },
   };
@@ -131,6 +132,7 @@
   $: settings.map.source.wmts = $page.query.wmts;
   $: settings.map.source.wms = $page.query.wms;
   $: settings.map.camera.rotate = $page.query.rotate_camera;
+  $: settings.map.camera.blur = $page.query.blur;
 
   const root = parse($page.query.description);
   settings.map.markers = [];
@@ -172,10 +174,9 @@
     }
     
     const nextURL = `${window.location.search}${window.location.hash}`.replace(
-      settings.map.style,
-      e.detail.style.label
+      '&style=' + settings.map.style,
+      '&style=' + e.detail.style.label
     );
-    console.log(nextURL)
     const nextTitle = "Public Map";
     const nextState = { additionalInformation: "Updated the URL with JS" };
     window.history.pushState(nextState, nextTitle, nextURL);
