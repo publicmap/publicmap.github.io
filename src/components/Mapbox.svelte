@@ -6,6 +6,7 @@
   import InspectControl from "../components/Mapbox/InspectControl.svelte";
   import TitleControl from "../components/Mapbox/TitleControl.svelte";
   import StylesControl from "../components/Mapbox/StylesControl.svelte";
+  import TiltShift from "./Mapbox/TiltShift.svelte";
   import { contextKey } from "./mapbox.js";
   import { settingsStore } from "./settingsStore.js";
   import sanitizeHtml from "sanitize-html";
@@ -14,13 +15,13 @@
   // const fetch = require("d3-fetch");
   // console.log(fetch)
 
-
   import { stores } from "@sapper/app";
-  const { preloading, page, session } = stores();
+  const {  page, session } = stores();
 
-  const { GeolocateControl, NavigationControl, ScaleControl } = controls;
+  const { GeolocateControl, ScaleControl } = controls;
 
   import countriesLookup from "../data/mapbox-countries-v1.json";
+
 
   let map, geocoder, mapbox, countryList;
 
@@ -91,11 +92,9 @@
       },
       camera: {
         rotate: false,
-      }
+      },
     },
   };
-
-
 
   //
   // Define URL query params
@@ -128,7 +127,7 @@
   $: settings.map.worldview = $page.query.worldview || settings.map.worldview;
   $: settings.map.accessToken =
     $page.query.access_token ||
-    "pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ"; //
+    "pk.eyJ1IjoicHVibGljbWFwIiwiYSI6ImNrajZuM3E2MDBtNzkyem55OG9oMjVwNHcifQ.S0ovBPKikZhHZ_6Dexk8Ow"; //
   $: settings.map.source.wmts = $page.query.wmts;
   $: settings.map.source.wms = $page.query.wms;
   $: settings.map.camera.rotate = $page.query.rotate_camera;
@@ -142,7 +141,8 @@
     });
   });
 
-  console.log(settings);
+  // DEBUG: settings
+  // console.log(settings);
 
   //
   // Map state change handers
@@ -188,26 +188,24 @@
   };
 
   onMount(() => {
+
+    // Load map config from external JSON
+    if ($page.query.config) {
+      fetch($page.query.config)
+        .then((resp) => resp.json())
+        .then((data) => {
+          Object.assign(settings.map, data);
+        });
+    }
+
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href =
       "https://raw.githack.com/bravecow/mapbox-gl-controls/master/theme.css";
     document.body.appendChild(link);
 
-    detectUserSettings();
-
-      // Load config from external JSON
-
-  if($page.query.config){
-
-fetch($page.query.config)
-.then(resp => resp.json())
-.then(data => {
-  Object.assign( settings.map, data )
-})
-
-}
-
+    detectUserSettings()
+         
     return () => {
       map.remove();
       link.parentNode.removeChild(link);
@@ -425,6 +423,7 @@ fetch($page.query.config)
   }
 
   function initMap() {
+
     settings.map.styleName = map.getStyle().name;
     settings.map.stylesheet = map.style.stylesheet;
 
@@ -437,8 +436,8 @@ fetch($page.query.config)
     //   );
     // }
 
-    if (settings.map.camera.rotate){
-      rotateCamera(0)
+    if (settings.map.camera.rotate) {
+      rotateCamera(0);
     }
 
     if (terrainExaggeration > 0) {
@@ -681,6 +680,7 @@ fetch($page.query.config)
   function closeInfoPanel() {
     document.getElementById("info-panel").style.display = "none";
   }
+
 </script>
 
 <style>
@@ -694,7 +694,7 @@ fetch($page.query.config)
     bottom: 10px;
   }
   section {
-    z-index: 1;
+    z-index: 99;
     margin-top: 20px;
     margin-left: 50px;
     width: 400px;
@@ -725,7 +725,56 @@ fetch($page.query.config)
     opacity: 1;
     transition: opacity 0.1s ease-in;
   }
+
+  :global(#tiltShift) {
+            display: none; /* this gets turned on by the javascript */
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 2;
+            pointer-events: none; /* Ensure the mouse pointer can't interact with this layer */
+        }
+
+        :global(#mist) {
+            display: none; /* this gets turned on by the javascript */
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 3;
+            pointer-events: none;
+            background-color: blanchedalmond; /* change the mist colour here */
+
+        }
 </style>
+
+<div id="map">
+  <Map
+    bind:this={mapbox}
+    accessToken={settings.map.accessToken}
+    style={settings.map.styleUrl}
+    options={{ hash: true, attributionControl: true, customAttribution: customAttribution }}
+    on:ready={onMapReady}
+    on:recentre={getLocationContext}
+    version="v2.0.1">
+
+    <TiltShift/>
+
+    <NavControl />
+    <GeolocateControl
+      position="top-right"
+      options={{ trackUserLocation: true }}
+      on:geolocate={onGeolocate} />
+    <StylesControl styles={settings.map.styles} on:change={onStyleChange} />
+    <InspectControl />
+    <RulerControl />
+    <ScaleControl position="bottom-left" />
+
+  </Map>
+</div>
 
 <section id="info-panel" class="uk-position-absolute uk-position-top-left">
   <div class="uk-card uk-card-body uk-card-default uk-card-small uk-card-hover">
@@ -784,27 +833,7 @@ fetch($page.query.config)
   </div>
 </section>
 
-<div id="map">
-  <Map
-    bind:this={mapbox}
-    accessToken={settings.map.accessToken}
-    style={settings.map.styleUrl}
-    options={{ hash: true, attributionControl: true, customAttribution: customAttribution }}
-    on:ready={onMapReady}
-    on:recentre={getLocationContext}
-    version="v2.0.1">
-    <NavControl />
-    <GeolocateControl
-      position="top-right"
-      options={{ trackUserLocation: true }}
-      on:geolocate={onGeolocate} />
 
-    <StylesControl styles={settings.map.styles} on:change={onStyleChange} />
-    <InspectControl />
-    <RulerControl />
-    <ScaleControl position="bottom-left" />
-  </Map>
-</div>
 
 <div id="locator-map">
   {#if false && settings.map.filter.iso_3166_1}
