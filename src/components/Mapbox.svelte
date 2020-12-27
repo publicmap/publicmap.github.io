@@ -167,10 +167,16 @@
     // Update url
     // https://www.30secondsofcode.org/blog/s/javascript-modify-url-without-reload
 
+    if(!window.location.search.includes("style=")){
+      window.location.search += '&style=' + e.detail.style.label;
+    }
+    
+
     const nextURL = `${window.location.search}${window.location.hash}`.replace(
       settings.map.style,
       e.detail.style.label
     );
+    console.log(nextURL)
     const nextTitle = "Public Map";
     const nextState = { additionalInformation: "Updated the URL with JS" };
     window.history.pushState(nextState, nextTitle, nextURL);
@@ -194,7 +200,7 @@
       fetch($page.query.config)
         .then((resp) => resp.json())
         .then((data) => {
-          Object.assign(settings.map, data);
+          // Object.assign(settings.map, data);
         });
     }
 
@@ -227,7 +233,7 @@
       .then((resp) => resp.json())
       .then((data) => {
         // DEBUG CONTEXT
-        console.log(data);
+        // console.log(data);
 
         settings.map.locationContext.geojson = data;
 

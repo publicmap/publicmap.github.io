@@ -22,7 +22,7 @@
 	// SOME SETTINGS TO PLAY WITH
 	// ==========================
 	// change the color of the mist in the CSS above: e.g. background-color: blanchedalmond;
-	export const mistAmount = 0.4; // how misty should it be? 0.6 is subtle and nice. Practical values are from 0.5 to 1.5
+	export const mistAmount = 0.2; // how misty should it be? 0.6 is subtle and nice. Practical values are from 0.5 to 1.5
 	export const tiltShiftMaxBlur = 1; // The maximum blur, in pixels, when the tilt-shift effect is fully on. 3 pixels is subtle and nice
 	//
 
