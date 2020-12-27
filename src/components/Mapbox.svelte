@@ -171,7 +171,6 @@
       window.location.search += '&style=' + e.detail.style.label;
     }
     
-
     const nextURL = `${window.location.search}${window.location.hash}`.replace(
       settings.map.style,
       e.detail.style.label
@@ -718,10 +717,8 @@
     transition: opacity 5s ease-out;
     z-index: 99;
   }
-  :global(.mapboxgl-ctrl-attrib, .mapboxgl-ctrl-bottom-left
-      > .mapboxgl-ctrl:nth-child(3), .mapboxgl-ctrl-bottom-left
-      > .mapboxgl-ctrl:nth-child(4)) {
-    opacity: 1;
+  :global(.mapboxgl-ctrl-attrib) {
+    opacity: 1 !important;
     transition: opacity 0.1s ease-out;
     z-index: 99;
   }
