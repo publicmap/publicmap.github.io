@@ -726,29 +726,6 @@
     transition: opacity 0.1s ease-in;
   }
 
-  :global(#tiltShift) {
-            display: none; /* this gets turned on by the javascript */
-            position: absolute;
-            top: 0;
-            right: 0;
-            bottom: 0;
-            left: 0;
-            z-index: 2;
-            pointer-events: none; /* Ensure the mouse pointer can't interact with this layer */
-        }
-
-        :global(#mist) {
-            display: none; /* this gets turned on by the javascript */
-            position: absolute;
-            top: 0;
-            right: 0;
-            bottom: 0;
-            left: 0;
-            z-index: 3;
-            pointer-events: none;
-            background-color: blanchedalmond; /* change the mist colour here */
-
-        }
 </style>
 
 <div id="map">
