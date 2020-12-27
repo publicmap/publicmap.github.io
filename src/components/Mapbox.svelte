@@ -11,7 +11,9 @@
   import sanitizeHtml from "sanitize-html";
   import { parse } from "node-html-parser";
 
-  const queryString = require("query-string");
+  // const fetch = require("d3-fetch");
+  // console.log(fetch)
+
 
   import { stores } from "@sapper/app";
   const { preloading, page, session } = stores();
@@ -47,7 +49,7 @@
       description: null,
       attribution: null,
       worldview: "US", // Set worldview to use for disputed areas
-      style: null,
+      style: null, // style: "https://cdn.jsdelivr.net/gh/osm-in/mapbox-gl-styles@latest/osm-mapnik.json",
       styles: [
         {
           label: "Satellite",
@@ -76,8 +78,6 @@
           styleUrl: "mapbox://styles/planemad/ckhijjwug10ht19mjwvno5o38",
         },
       ],
-      // style: "https://cdn.jsdelivr.net/gh/osm-in/mapbox-gl-styles@latest/osm-mapnik.json",
-      // ckgopajx83l581bo6qr5l86yg
       locationContext: {
         text: "",
         fetch: null,
@@ -85,10 +85,17 @@
       },
       source: {
         geojson: null,
+        vector: null,
         wmts: null,
+        wms: null,
       },
+      camera: {
+        rotate: false,
+      }
     },
   };
+
+
 
   //
   // Define URL query params
@@ -123,6 +130,8 @@
     $page.query.access_token ||
     "pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ"; //
   $: settings.map.source.wmts = $page.query.wmts;
+  $: settings.map.source.wms = $page.query.wms;
+  $: settings.map.camera.rotate = $page.query.rotate_camera;
 
   const root = parse($page.query.description);
   settings.map.markers = [];
@@ -186,6 +195,18 @@
     document.body.appendChild(link);
 
     detectUserSettings();
+
+      // Load config from external JSON
+
+  if($page.query.config){
+
+fetch($page.query.config)
+.then(resp => resp.json())
+.then(data => {
+  Object.assign( settings.map, data )
+})
+
+}
 
     return () => {
       map.remove();
@@ -416,6 +437,10 @@
     //   );
     // }
 
+    if (settings.map.camera.rotate){
+      rotateCamera(0)
+    }
+
     if (terrainExaggeration > 0) {
       // Add 3D terrain
       // https://docs.mapbox.com/mapbox-gl-js/example/add-terrain/
@@ -516,7 +541,7 @@
       map.addSource("wmts", {
         type: "raster",
         tiles: [settings.map.source.wmts],
-        tileSize: 256,
+        tileSize: 512,
         attribution: `Overlay tiles from <a target="_top" rel="noopener" href="${settings.map.source.wmts}">${sourceURL.hostname}</a>`,
       });
 
@@ -637,6 +662,16 @@
         ["==", "all", ["get", "worldview"]],
       ],
     ];
+  }
+
+  // Rotate camera around point
+  // https://docs.mapbox.com/mapbox-gl-js/example/animate-camera-around-point/
+  function rotateCamera(timestamp) {
+    // clamp the rotation between 0 -360 degrees
+    // Divide timestamp by 100 to slow rotation to ~10 degrees / sec
+    map.rotateTo((timestamp / 100) % 360, { duration: 0 });
+    // Request the next frame of the animation.
+    requestAnimationFrame(rotateCamera);
   }
 
   //
