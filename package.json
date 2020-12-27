@@ -12,11 +12,11 @@
   "dependencies": {
     "@watergis/mapbox-gl-export": "^1.1.0",
     "compression": "^1.7.1",
+    "d3-fetch": "^2.0.0",
     "mapbox-gl-controls": "^1.6.5",
     "node-fetch": "^2.6.1",
     "node-html-parser": "^2.0.0",
     "polka": "next",
-    "query-string": "^6.13.7",
     "sanitize-html": "^2.3.0",
     "sirv": "^1.0.0",
     "xmlhttprequest": "^1.8.0"

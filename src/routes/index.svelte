@@ -31,7 +31,22 @@
 </style>
 
 <svelte:head>
+  
   <title>Public Map</title>
+
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-VKRDLTY01M">
+  </script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+    gtag("js", new Date());
+
+    gtag("config", "G-VKRDLTY01M");
+  </script>
+
 </svelte:head>
 
 <Mapbox bind:map={mapbox} />

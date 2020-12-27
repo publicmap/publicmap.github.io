@@ -6,19 +6,22 @@
   import InspectControl from "../components/Mapbox/InspectControl.svelte";
   import TitleControl from "../components/Mapbox/TitleControl.svelte";
   import StylesControl from "../components/Mapbox/StylesControl.svelte";
+  import TiltShift from "./Mapbox/TiltShift.svelte";
   import { contextKey } from "./mapbox.js";
   import { settingsStore } from "./settingsStore.js";
   import sanitizeHtml from "sanitize-html";
   import { parse } from "node-html-parser";
 
-  const queryString = require("query-string");
+  // const fetch = require("d3-fetch");
+  // console.log(fetch)
 
   import { stores } from "@sapper/app";
-  const { preloading, page, session } = stores();
+  const {  page, session } = stores();
 
-  const { GeolocateControl, NavigationControl, ScaleControl } = controls;
+  const { GeolocateControl, ScaleControl } = controls;
 
   import countriesLookup from "../data/mapbox-countries-v1.json";
+
 
   let map, geocoder, mapbox, countryList;
 
@@ -47,7 +50,7 @@
       description: null,
       attribution: null,
       worldview: "US", // Set worldview to use for disputed areas
-      style: null,
+      style: null, // style: "https://cdn.jsdelivr.net/gh/osm-in/mapbox-gl-styles@latest/osm-mapnik.json",
       styles: [
         {
           label: "Satellite",
@@ -76,8 +79,6 @@
           styleUrl: "mapbox://styles/planemad/ckhijjwug10ht19mjwvno5o38",
         },
       ],
-      // style: "https://cdn.jsdelivr.net/gh/osm-in/mapbox-gl-styles@latest/osm-mapnik.json",
-      // ckgopajx83l581bo6qr5l86yg
       locationContext: {
         text: "",
         fetch: null,
@@ -85,7 +86,12 @@
       },
       source: {
         geojson: null,
+        vector: null,
         wmts: null,
+        wms: null,
+      },
+      camera: {
+        rotate: false,
       },
     },
   };
@@ -121,8 +127,10 @@
   $: settings.map.worldview = $page.query.worldview || settings.map.worldview;
   $: settings.map.accessToken =
     $page.query.access_token ||
-    "pk.eyJ1IjoicGxhbmVtYWQiLCJhIjoiY2l3ZmNjNXVzMDAzZzJ0cDV6b2lkOG9odSJ9.eep6sUoBS0eMN4thZUWpyQ"; //
+    "pk.eyJ1IjoicHVibGljbWFwIiwiYSI6ImNrajZuM3E2MDBtNzkyem55OG9oMjVwNHcifQ.S0ovBPKikZhHZ_6Dexk8Ow"; //
   $: settings.map.source.wmts = $page.query.wmts;
+  $: settings.map.source.wms = $page.query.wms;
+  $: settings.map.camera.rotate = $page.query.rotate_camera;
 
   const root = parse($page.query.description);
   settings.map.markers = [];
@@ -133,7 +141,8 @@
     });
   });
 
-  console.log(settings);
+  // DEBUG: settings
+  // console.log(settings);
 
   //
   // Map state change handers
@@ -158,10 +167,16 @@
     // Update url
     // https://www.30secondsofcode.org/blog/s/javascript-modify-url-without-reload
 
+    if(!window.location.search.includes("style=")){
+      window.location.search += '&style=' + e.detail.style.label;
+    }
+    
+
     const nextURL = `${window.location.search}${window.location.hash}`.replace(
       settings.map.style,
       e.detail.style.label
     );
+    console.log(nextURL)
     const nextTitle = "Public Map";
     const nextState = { additionalInformation: "Updated the URL with JS" };
     window.history.pushState(nextState, nextTitle, nextURL);
@@ -179,14 +194,24 @@
   };
 
   onMount(() => {
+
+    // Load map config from external JSON
+    if ($page.query.config) {
+      fetch($page.query.config)
+        .then((resp) => resp.json())
+        .then((data) => {
+          // Object.assign(settings.map, data);
+        });
+    }
+
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href =
       "https://raw.githack.com/bravecow/mapbox-gl-controls/master/theme.css";
     document.body.appendChild(link);
 
-    detectUserSettings();
-
+    detectUserSettings()
+         
     return () => {
       map.remove();
       link.parentNode.removeChild(link);
@@ -208,7 +233,7 @@
       .then((resp) => resp.json())
       .then((data) => {
         // DEBUG CONTEXT
-        console.log(data);
+        // console.log(data);
 
         settings.map.locationContext.geojson = data;
 
@@ -404,6 +429,7 @@
   }
 
   function initMap() {
+
     settings.map.styleName = map.getStyle().name;
     settings.map.stylesheet = map.style.stylesheet;
 
@@ -415,6 +441,10 @@
     //     settings.map.worldview
     //   );
     // }
+
+    if (settings.map.camera.rotate) {
+      rotateCamera(0);
+    }
 
     if (terrainExaggeration > 0) {
       // Add 3D terrain
@@ -516,7 +546,7 @@
       map.addSource("wmts", {
         type: "raster",
         tiles: [settings.map.source.wmts],
-        tileSize: 256,
+        tileSize: 512,
         attribution: `Overlay tiles from <a target="_top" rel="noopener" href="${settings.map.source.wmts}">${sourceURL.hostname}</a>`,
       });
 
@@ -639,6 +669,16 @@
     ];
   }
 
+  // Rotate camera around point
+  // https://docs.mapbox.com/mapbox-gl-js/example/animate-camera-around-point/
+  function rotateCamera(timestamp) {
+    // clamp the rotation between 0 -360 degrees
+    // Divide timestamp by 100 to slow rotation to ~10 degrees / sec
+    map.rotateTo((timestamp / 100) % 360, { duration: 0 });
+    // Request the next frame of the animation.
+    requestAnimationFrame(rotateCamera);
+  }
+
   //
   // UI
   //
@@ -646,6 +686,7 @@
   function closeInfoPanel() {
     document.getElementById("info-panel").style.display = "none";
   }
+
 </script>
 
 <style>
@@ -659,7 +700,7 @@
     bottom: 10px;
   }
   section {
-    z-index: 1;
+    z-index: 99;
     margin-top: 20px;
     margin-left: 50px;
     width: 400px;
@@ -690,7 +731,33 @@
     opacity: 1;
     transition: opacity 0.1s ease-in;
   }
+
 </style>
+
+<div id="map">
+  <Map
+    bind:this={mapbox}
+    accessToken={settings.map.accessToken}
+    style={settings.map.styleUrl}
+    options={{ hash: true, attributionControl: true, customAttribution: customAttribution }}
+    on:ready={onMapReady}
+    on:recentre={getLocationContext}
+    version="v2.0.1">
+
+    <TiltShift/>
+
+    <NavControl />
+    <GeolocateControl
+      position="top-right"
+      options={{ trackUserLocation: true }}
+      on:geolocate={onGeolocate} />
+    <StylesControl styles={settings.map.styles} on:change={onStyleChange} />
+    <InspectControl />
+    <RulerControl />
+    <ScaleControl position="bottom-left" />
+
+  </Map>
+</div>
 
 <section id="info-panel" class="uk-position-absolute uk-position-top-left">
   <div class="uk-card uk-card-body uk-card-default uk-card-small uk-card-hover">
@@ -749,27 +816,7 @@
   </div>
 </section>
 
-<div id="map">
-  <Map
-    bind:this={mapbox}
-    accessToken={settings.map.accessToken}
-    style={settings.map.styleUrl}
-    options={{ hash: true, attributionControl: true, customAttribution: customAttribution }}
-    on:ready={onMapReady}
-    on:recentre={getLocationContext}
-    version="v2.0.1">
-    <NavControl />
-    <GeolocateControl
-      position="top-right"
-      options={{ trackUserLocation: true }}
-      on:geolocate={onGeolocate} />
 
-    <StylesControl styles={settings.map.styles} on:change={onStyleChange} />
-    <InspectControl />
-    <RulerControl />
-    <ScaleControl position="bottom-left" />
-  </Map>
-</div>
 
 <div id="locator-map">
   {#if false && settings.map.filter.iso_3166_1}
