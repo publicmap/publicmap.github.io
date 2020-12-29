@@ -336,7 +336,7 @@
           if (layer.type == "fill" && layer.id == "country-mask") {
             map.setPaintProperty(layer.id, "fill-color", [
               "case",
-              ["match", ["get", "iso_3166_1"], [iso_3166_1], true, false],
+              ["in", iso_3166_1, ["get", "iso_3166_1"]],
               "hsla(0, 0%, 94%, 0)",
               ["match", ["get", "disputed"], ["true"], true, false],
               "hsla(36, 0%, 10%, 0.05)",
@@ -345,13 +345,22 @@
           }
 
           if (layer.type == "line") {
-            map.setPaintProperty(layer.id, "line-opacity", [
-              "match",
-              ["get", "iso_3166_1"],
-              iso_3166_1,
-              1,
-              layer.id == "country-mask-outline" ? 0 : 0.3,
-            ]);
+            if (layer.id == "country-mask-outline") {
+              map.setPaintProperty(layer.id, "line-opacity", [
+                "case",
+                ["in", iso_3166_1, ["get", "iso_3166_1"]],
+                1,
+                0,
+              ]);
+            } else {
+              map.setPaintProperty(layer.id, "line-opacity", [
+                "match",
+                ["get", "iso_3166_1"],
+                iso_3166_1,
+                1,
+                0.3,
+              ]);
+            }
           }
         });
     }
