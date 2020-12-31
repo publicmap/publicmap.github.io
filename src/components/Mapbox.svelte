@@ -167,17 +167,17 @@
   }
 
   function onStyleChange(e) {
-    // Update url
-    // https://www.30secondsofcode.org/blog/s/javascript-modify-url-without-reload
+
+    // Update style params in url
 
     if (!window.location.search.includes("style=")) {
       window.location.search += "&style=" + e.detail.style.label;
     }
 
-    const nextURL = `${window.location.search}${window.location.hash}`.replace(
-      "&style=" + settings.map.style,
-      "&style=" + e.detail.style.label
-    );
+    const searchParams = new URLSearchParams(window.location.search);
+    searchParams.set('style', e.detail.style.label);
+
+    const nextURL = `${searchParams.toString()}${window.location.hash}`;
     const nextTitle = "Public Map";
     const nextState = { additionalInformation: "Updated the URL with JS" };
     window.history.pushState(nextState, nextTitle, nextURL);
@@ -268,31 +268,10 @@
 
   // Update map style based on current location context
   function updateMapStyle() {
-    if (settings.map.locationContext.iso_3166_1) {
+
+    if (map.getZoom() > 3 && map.getZoom() <12 && settings.map.locationContext.iso_3166_1) {
+
       const iso_3166_1 = settings.map.locationContext.iso_3166_1.toUpperCase();
-
-      // // Style country outline and internal boundaries
-      // map.setPaintProperty("country-boundaries-outline", "line-color", [
-      //   "match",
-      //   ["get", "iso_3166_1"],
-      //   iso_3166_1,
-      //   "orange",
-      //   "hsla(0, 0%, 100%, 0)",
-      // ]);
-
-      // map.setPaintProperty("admin-boundaries-line", "line-color", [
-      //   "case",
-      //   ["match", ["get", "iso_3166_1"], [iso_3166_1], true, false],
-      //   "hsl(0, 0%, 100%)",
-      //   ["match", ["get", "disputed"], ["true"], true, false],
-      //   "hsla(0, 0%, 82%,0.5)",
-      //   [
-      //     "case",
-      //     ["==", ["get", "admin_level"], 0],
-      //     "hsla(0, 0%, 66%,0.5)",
-      //     "hsla(0, 0%, 66%,0)",
-      //   ],
-      // ]);
 
       const maskableLayers = [
         "place_label",
@@ -353,11 +332,16 @@
                 0,
               ]);
             } else {
+
+              const srcLineOpacity = map.getPaintProperty(layer.id, "line-opacity") || 1;
+              console.log(srcLineOpacity)
+
+              if(srcLineOpacity)
               map.setPaintProperty(layer.id, "line-opacity", [
                 "match",
                 ["get", "iso_3166_1"],
                 iso_3166_1,
-                1,
+                srcLineOpacity || 1,
                 0.3,
               ]);
             }
@@ -552,7 +536,7 @@
           source: countryBoundariesSource,
           "source-layer": "country_boundaries",
           paint: {
-            "line-color": "hsla(0, 0%, 100%, 0.5)",
+            "line-color": "hsla(0, 0%, 20%, 0.5)",
             "line-width": ["interpolate", ["linear"], ["zoom"], 2, 1, 6, 4],
           },
         },
