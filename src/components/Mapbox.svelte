@@ -170,14 +170,10 @@
 
     // Update style params in url
 
-    if (!window.location.search.includes("style=")) {
-      window.location.search += "&style=" + e.detail.style.label;
-    }
-
     const searchParams = new URLSearchParams(window.location.search);
-    searchParams.set('style', e.detail.style.label);
+    searchParams.set('style', e.detail.style.label); 
 
-    const nextURL = `${searchParams.toString()}${window.location.hash}`;
+    const nextURL = `?${searchParams.toString()}${window.location.hash}`;
     const nextTitle = "Public Map";
     const nextState = { additionalInformation: "Updated the URL with JS" };
     window.history.pushState(nextState, nextTitle, nextURL);
