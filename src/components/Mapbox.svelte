@@ -13,8 +13,7 @@
   import { parse } from "node-html-parser";
   import { queryWikidata, shuffle } from "./utils.js";
 
-  // const fetch = require("d3-fetch");
-  // console.log(fetch)
+  var wkt = require("wellknown");
 
   import { stores } from "@sapper/app";
   const { page, session } = stores();
@@ -88,7 +87,7 @@
       source: {
         geojson: null,
         vector: null,
-        wmts: null,
+        tiles: null,
         wms: null,
       },
       camera: {
@@ -130,7 +129,7 @@
   $: settings.map.accessToken =
     $page.query.access_token ||
     "pk.eyJ1IjoicHVibGljbWFwIiwiYSI6ImNrajZuM3E2MDBtNzkyem55OG9oMjVwNHcifQ.S0ovBPKikZhHZ_6Dexk8Ow"; //
-  $: settings.map.source.wmts = $page.query.wmts;
+  $: settings.map.source.tiles = $page.query.tiles;
   $: settings.map.source.wms = $page.query.wms;
   $: settings.map.camera.rotate = $page.query.rotate_camera;
   $: settings.map.camera.blur = $page.query.blur;
@@ -151,27 +150,28 @@
   // Map state change handers
   //
 
+  function onGeocoderReady(e) {}
   function onGeocoderResult(e) {
     map.setCenter(e.detail.result.center);
+    setLocationContext();
   }
 
   function onGeolocate(e) {
-    // console.log(e.detail);
+    setLocationContext();
   }
 
   function onMapReady(e) {
     map = mapbox.getMap();
+    mapbox = mapbox.getMapbox();
 
-    getLocationContext(e);
-    initMap();
+    customizeMapStyle();
   }
 
   function onStyleChange(e) {
-
     // Update style params in url
 
     const searchParams = new URLSearchParams(window.location.search);
-    searchParams.set('style', e.detail.style.label); 
+    searchParams.set("style", e.detail.style.label);
 
     const nextURL = `?${searchParams.toString()}${window.location.hash}`;
     const nextTitle = "Public Map";
@@ -181,7 +181,7 @@
     settings.map.style = e.detail.style.label;
 
     map.once("styledata", function (e) {
-      initMap();
+      customizeMapStyle();
     });
   }
 
@@ -214,7 +214,7 @@
     };
   });
 
-  function getLocationContext(e) {
+  function setLocationContext() {
     let querylngLat = map.getCenter();
 
     let reverseGeocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${
@@ -242,6 +242,8 @@
           settings.map.locationContext.iso_3166_1 =
             data.features[data.features.length - 1]["properties"]["short_code"];
 
+          settings.map.locationContext.text = "";
+
           data.features.forEach((feature) => {
             if (
               feature.place_type.indexOf("country") > -1 ||
@@ -264,12 +266,16 @@
 
   // Update map style based on current location context
   function updateMapStyle() {
+    // Mask features not in current country
 
-    if (map.getZoom() > 3 && map.getZoom() <12 && settings.map.locationContext.iso_3166_1) {
-
+    if (
+      map.getZoom() > 3 &&
+      map.getZoom() < 12 &&
+      settings.map.locationContext.iso_3166_1
+    ) {
       const iso_3166_1 = settings.map.locationContext.iso_3166_1.toUpperCase();
 
-      const maskableLayers = [
+      const maskableSourceLayers = [
         "place_label",
         "road",
         "country_boundaries",
@@ -279,7 +285,7 @@
       map
         .getStyle()
         .layers.filter(
-          (layer) => maskableLayers.indexOf(layer["source-layer"]) > -1
+          (layer) => maskableSourceLayers.indexOf(layer["source-layer"]) > -1
         )
         .forEach((layer) => {
           if (layer.type == "symbol") {
@@ -328,21 +334,30 @@
                 0,
               ]);
             } else {
+              const srcLineOpacity =
+                map.getPaintProperty(layer.id, "line-opacity") || 1;
 
-              const srcLineOpacity = map.getPaintProperty(layer.id, "line-opacity") || 1;
-              console.log(srcLineOpacity)
-
-              if(srcLineOpacity)
-              map.setPaintProperty(layer.id, "line-opacity", [
-                "match",
-                ["get", "iso_3166_1"],
-                iso_3166_1,
-                srcLineOpacity || 1,
-                0.3,
-              ]);
+              if (
+                Array.isArray(srcLineOpacity) &&
+                (srcLineOpacity[1] == "zoom" || srcLineOpacity[2] == "zoom")
+              ) {
+                // TODO: https://github.com/publicmap/publicmap.github.io/issues/23
+              } else {
+                map.setPaintProperty(layer.id, "line-opacity", [
+                  "match",
+                  ["get", "iso_3166_1"],
+                  iso_3166_1,
+                  srcLineOpacity || 1,
+                  0.3,
+                ]);
+              }
             }
           }
         });
+    }
+
+    if (map.getZoom() > 10) {
+      getWikidataFeatures();
     }
   }
 
@@ -396,7 +411,7 @@
     traceRequest.send(null);
   }
 
-  function initMap() {
+  function customizeMapStyle() {
     settings.map.styleName = map.getStyle().name;
     settings.map.stylesheet = map.style.stylesheet;
 
@@ -448,6 +463,21 @@
             16,
             1,
           ],
+        });
+      }
+
+      // Add sky
+
+      if (!map.getLayer("sky")) {
+        // add a sky layer that will show when the map is highly pitched
+        map.addLayer({
+          id: "sky",
+          type: "sky",
+          paint: {
+            "sky-type": "atmosphere",
+            "sky-atmosphere-sun": [0.0, 0.0],
+            "sky-atmosphere-sun-intensity": 2,
+          },
         });
       }
     }
@@ -542,23 +572,33 @@
       setLayerWorldview("country-mask-outline");
     }
 
-    // Add user defined wmts
+    // Add user defined tiles
 
-    if (settings.map.source.wmts) {
-      const sourceURL = new URL(settings.map.source.wmts);
+    if (settings.map.source.tiles) {
+      const sourceURL = new URL(settings.map.source.tiles);
 
-      map.addSource("wmts", {
+      map.addSource("tiles", {
         type: "raster",
-        tiles: [settings.map.source.wmts],
+        tiles: [settings.map.source.tiles],
         tileSize: 512,
-        attribution: `Overlay tiles from <a target="_top" rel="noopener" href="${settings.map.source.wmts}">${sourceURL.hostname}</a>`,
+        attribution: `Overlay tiles from <a target="_top" rel="noopener" href="${tilesAttributionUrl(
+          settings.map.source.tiles
+        )}">${sourceURL.hostname}</a>`,
       });
+
+      function tilesAttributionUrl(tiles) {
+        if (tiles.includes("warper")) {
+          return tiles.replace("tile/", "").split("{")[0];
+        } else {
+          return tiles;
+        }
+      }
 
       map.addLayer(
         {
           id: "raster-tiles",
           type: "raster",
-          source: "wmts",
+          source: "tiles",
           minzoom: 0,
           maxzoom: 22,
           paint: {
@@ -626,20 +666,40 @@
       );
     }
 
-    if (!map.getLayer("sky")) {
-      // add a sky layer that will show when the map is highly pitched
+    // Add Wikidata layer
+    // https://docs.mapbox.com/mapbox-gl-js/example/hillshade/
+
+    if (!map.getSource("wikidata")) {
+      map.addSource("wikidata", {
+        type: "geojson",
+        data: null,
+        attribution: "Wikidata",
+      });
+
       map.addLayer({
-        id: "sky",
-        type: "sky",
+        id: "wikidata-circle",
+        type: "circle",
+        source: "wikidata",
         paint: {
-          "sky-type": "atmosphere",
-          "sky-atmosphere-sun": [0.0, 0.0],
-          "sky-atmosphere-sun-intensity": 2,
+          "circle-radius": 2,
+        },
+      });
+
+      map.addLayer({
+        id: "wikidata",
+        type: "symbol",
+        source: "wikidata",
+        layout: {
+          "text-field": ["get", "name"],
+          "text-font": ["Open Sans Semibold"],
+          "text-size": 12,
+          "text-offset": [0, .2],
+          "text-anchor": "top",
         },
       });
     }
 
-    getLocationContext();
+    setLocationContext();
   }
 
   //
@@ -677,7 +737,56 @@
   }
 
   //
-  // UI
+  // Data methods
+  //
+
+  function getWikidataFeatures() {
+    // Live query https://w.wiki/sNL
+
+    const sparql = `
+    SELECT ?item ?itemLabel (SAMPLE(?item_location) AS ?wkt) ?article WHERE {     
+  SERVICE wikibase:around { 
+  ?item wdt:P625 ?item_location .
+  bd:serviceParam wikibase:center "Point(${map.getCenter().lng} ${
+      map.getCenter().lat
+    })"^^geo:wktLiteral .  
+  bd:serviceParam wikibase:radius "${6 - map.getZoom() / 10}" 
+}
+    OPTIONAL{
+?article schema:about ?item. 
+  ?article schema:inLanguage "en"
+           }
+
+SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}
+GROUP BY ?item ?itemLabel ?article
+LIMIT 100
+    `;
+    queryWikidata(sparql).then((result) => {
+      let geojson = {
+        type: "FeatureCollection",
+        features: [],
+      };
+
+      result.forEach((d) => {
+        let feature = {
+          type: "Feature",
+          properties: {
+            name: d.itemLabel.value,
+            url: d.item.value,
+          },
+          geometry: wkt(d.wkt.value),
+        };
+
+        geojson.features.push(feature);
+      });
+
+      map.getSource("wikidata").setData(geojson);
+    });
+  }
+
+  //
+  // UI methods
   //
 
   function closeInfoPanel() {
@@ -709,6 +818,10 @@
     font-weight: bold;
   }
 
+  :global(.mapboxgl-ctrl-geocoder.mapboxgl-ctrl) {
+    width: 100%;
+  }
+
   :global(.mapboxgl-control-container > *:not(.mapboxgl-ctrl-bottom-left) > *) {
     opacity: 0;
     transition: opacity 5s ease-out;
@@ -734,7 +847,7 @@
     style={settings.map.styleUrl}
     options={{ hash: true, attributionControl: true, customAttribution: customAttribution }}
     on:ready={onMapReady}
-    on:recentre={getLocationContext}
+    on:recentre={setLocationContext}
     version="v2.0.1">
     <TiltShift />
 
@@ -772,31 +885,35 @@
       </p>
     {/if}
 
-    {#if settings.map.locationContext.iso_3166_1}
-      <span><span uk-icon="icon: world" />
-        {#await settings.map.locationContext.fetch}
-          <span>...</span>
-        {:then result}
-          {#each result.features as feature}
-            {#if feature.place_type.indexOf('country') > -1 || (feature.place_type.indexOf('region') > -1 && map.getZoom() > 6) || (feature.place_type.indexOf('district') > -1 && map.getZoom() > 9)}
-              <a
-                target="_blank"
-                class="uk-link-reset"
-                href="https://www.wikidata.org/wiki/{feature.properties.wikidata}">
-                {feature.text}</a>{feature.place_type.indexOf('country') == -1 ? ', ' : ''}
-            {/if}
-          {/each}
-        {/await}
-      </span>
-      <br />
+    <div class="uk-position-relative">
+      {#if settings.map.locationContext.iso_3166_1}
+        <div
+          class="uk-position-absolute uk-position-center-left"
+          style="left:50px">
+          {#await settings.map.locationContext.fetch}
+            <span>...</span>
+          {:then result}
+            {#each result.features as feature}
+              {#if feature.place_type.indexOf('country') > -1 || (feature.place_type.indexOf('region') > -1 && map.getZoom() > 6) || (feature.place_type.indexOf('district') > -1 && map.getZoom() > 9)}
+                <a
+                  target="_blank"
+                  style="color:grey;text-decoration: underline"
+                  href="https://www.wikidata.org/wiki/{feature.properties.wikidata}">
+                  {feature.text}</a>{feature.place_type.indexOf('country') == -1 ? ', ' : ''}
+              {/if}
+            {/each}
+          {/await}
+        </div>
+      {/if}
 
-      <!-- <Geocoder
-    bind:this={geocoder}
-    accessToken={settings.map.accessToken}
-    options={{ position: 'top-right',localGeocoder: forwardGeocoder, countries: settings.map.filter.iso_3166_1 ? settings.map.filter.iso_3166_1.toLocaleLowerCase() : '' }}
-    placeholder={settings.map.locationContext.text}
-    on:result={onGeocoderResult} /> -->
-    {/if}
+      <Geocoder
+        bind:geocoder
+        accessToken={settings.map.accessToken}
+        types={['country', 'region', 'postcode', 'district', 'place', 'locality', 'neighborhood']}
+        options={{ clearOnBlur: true, collapsed: true, marker: true, mapboxgl: mapbox }}
+        on:ready={onGeocoderReady}
+        on:result={onGeocoderResult} />
+    </div>
 
     {#if settings.map.stylesheet}
       <span>Cartography:
