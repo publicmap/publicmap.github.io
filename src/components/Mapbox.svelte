@@ -746,6 +746,13 @@
   function getWikidataFeatures() {
     // Live query https://w.wiki/sNL
 
+    Number.prototype.map = function (in_min, in_max, out_min, out_max) {
+  return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+let queryRadius = map.getZoom().map(10,14,8,0.5);
+queryRadius = queryRadius > 0.5 ? queryRadius : 0.5;
+
     const sparql = `
     SELECT ?item ?itemLabel (SAMPLE(?item_location) AS ?wkt) ?article WHERE {     
   SERVICE wikibase:around { 
@@ -753,7 +760,7 @@
   bd:serviceParam wikibase:center "Point(${map.getCenter().lng} ${
       map.getCenter().lat
     })"^^geo:wktLiteral .  
-  bd:serviceParam wikibase:radius "${12 - map.getZoom() / 2}" 
+  bd:serviceParam wikibase:radius "${queryRadius}" 
 }
     OPTIONAL{
 ?article schema:about ?item. 
