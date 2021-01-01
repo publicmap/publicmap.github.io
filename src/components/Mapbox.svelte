@@ -586,19 +586,19 @@
 
       map.addSource("tiles", {
         type: "raster",
-        tiles: [settings.map.source.tiles],
+        tiles: [tileUrl(settings.map.source.tiles)],
         tileSize: 512,
-        attribution: `Overlay tiles from <a target="_top" rel="noopener" href="${tilesAttributionUrl(
+        attribution: `Overlay tiles from <a target="_top" rel="noopener" href="${tileAttributionUrl(
           settings.map.source.tiles
         )}">${sourceURL.hostname}</a>`,
       });
 
-      function tilesAttributionUrl(tiles) {
-        if (tiles.includes("warper")) {
-          return tiles.replace("tile/", "").split("{")[0];
-        } else {
-          return tiles;
-        }
+      function tileUrl(url) {
+        return url.includes("wmflabs") ? 'https://cors-anywhere.herokuapp.com/' + url : url
+      }
+
+      function tileAttributionUrl(url){
+        return url.includes("warper") ? url.replace("tile/", "").split("{")[0] :  url
       }
 
       map.addLayer(
