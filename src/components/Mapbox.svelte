@@ -48,6 +48,7 @@
       title: null,
       description: null,
       attribution: null,
+      bbox: null,
       worldviews: ["US", "CN", "IN", "JP"],
       worldview: "US", // Set worldview to use for disputed areas
       style: null, // style: "https://cdn.jsdelivr.net/gh/osm-in/mapbox-gl-styles@latest/osm-mapnik.json",
@@ -164,6 +165,11 @@
     map = mapbox.getMap();
     mapbox = mapbox.getMapbox();
 
+    
+    if(settings.map.autoLocate){
+            map.fitBounds(JSON.parse(countryList.filter(country => country.iso_3166_1 == settings.user.location.iso_3166_1)[0].bounds))
+          }
+
     customizeMapStyle();
   }
 
@@ -199,6 +205,8 @@
           // Object.assign(settings.map, data);
         });
     }
+
+    if (!window.location.hash) settings.map.autoLocate = true;
 
     const link = document.createElement("link");
     link.rel = "stylesheet";
@@ -240,7 +248,7 @@
             ];
 
           settings.map.locationContext.iso_3166_1 =
-            data.features[data.features.length - 1]["properties"]["short_code"];
+            data.features[data.features.length - 1]["properties"]["short_code"].toUpperCase();
 
           settings.map.locationContext.text = "";
 
@@ -269,11 +277,9 @@
     // Mask features not in current country
 
     if (
-      map.getZoom() > 3 &&
-      map.getZoom() < 12 &&
       settings.map.locationContext.iso_3166_1
     ) {
-      const iso_3166_1 = settings.map.locationContext.iso_3166_1.toUpperCase();
+      const iso_3166_1 = settings.map.locationContext.iso_3166_1;
 
       const maskableSourceLayers = [
         "place_label",
@@ -404,6 +410,7 @@
               (d.description == "sovereign state" ||
                 d.description == "dependent territory")
           );
+
         }
       }
     };
@@ -689,14 +696,14 @@
         id: "wikidata",
         type: "symbol",
         source: "wikidata",
-        paint:{
-          "text-opacity":0.6
+        paint: {
+          "text-opacity": 0.6,
         },
         layout: {
           "text-field": ["get", "name"],
           "text-font": ["Open Sans Semibold"],
           "text-size": 12,
-          "text-offset": [0, .2],
+          "text-offset": [0, 0.2],
           "text-anchor": "top",
         },
       });
@@ -747,11 +754,13 @@
     // Live query https://w.wiki/sNL
 
     Number.prototype.map = function (in_min, in_max, out_min, out_max) {
-  return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
+      return (
+        ((this - in_min) * (out_max - out_min)) / (in_max - in_min) + out_min
+      );
+    };
 
-let queryRadius = map.getZoom().map(10,14,8,0.5);
-queryRadius = queryRadius > 0.5 ? queryRadius : 0.5;
+    let queryRadius = map.getZoom().map(10, 14, 8, 0.5);
+    queryRadius = queryRadius > 0.5 ? queryRadius : 0.5;
 
     const sparql = `
     SELECT ?item ?itemLabel (SAMPLE(?item_location) AS ?wkt) ?article WHERE {     
