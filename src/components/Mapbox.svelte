@@ -689,6 +689,9 @@
         id: "wikidata",
         type: "symbol",
         source: "wikidata",
+        paint:{
+          "text-opacity":0.6
+        },
         layout: {
           "text-field": ["get", "name"],
           "text-font": ["Open Sans Semibold"],
@@ -750,7 +753,7 @@
   bd:serviceParam wikibase:center "Point(${map.getCenter().lng} ${
       map.getCenter().lat
     })"^^geo:wktLiteral .  
-  bd:serviceParam wikibase:radius "${6 - map.getZoom() / 10}" 
+  bd:serviceParam wikibase:radius "${12 - map.getZoom() / 2}" 
 }
     OPTIONAL{
 ?article schema:about ?item. 
