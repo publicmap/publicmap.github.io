@@ -96,7 +96,7 @@
         blur: false,
       },
       wikidata: {
-        isEnabled: null
+        isEnabled: null,
       },
     },
   };
@@ -137,7 +137,8 @@
   $: settings.map.source.wms = $page.query.wms;
   $: settings.map.camera.rotate = $page.query.rotate_camera;
   $: settings.map.camera.blur = $page.query.blur;
-  $: settings.map.wikidata.isEnabled = ($page.query.wikidata  || 'true' ) == 'true';
+  $: settings.map.wikidata.isEnabled =
+    ($page.query.wikidata || "true") == "true";
 
   const root = parse($page.query.description);
   settings.map.markers = [];
@@ -152,58 +153,8 @@
   // console.log(settings);
 
   //
-  // Map state change handers
+  // Initialize Mapbox compnent
   //
-
-  function onGeocoderReady(e) {}
-  function onGeocoderResult(e) {
-    map.setCenter(e.detail.result.center);
-    setLocationContext();
-  }
-
-  function onGeolocate(e) {
-    setLocationContext();
-  }
-
-  function onMapReady(e) {
-    map = mapbox.getMap();
-    mapbox = mapbox.getMapbox();
-
-    if (settings.map.autoLocate) {
-      map.fitBounds(
-        JSON.parse(
-          countryList.filter(
-            (country) => country.iso_3166_1 == settings.user.location.iso_3166_1
-          )[0].bounds
-        )
-      );
-    }
-
-    customizeMapStyle();
-  }
-
-  function onStyleChange(e) {
-    // Update style params in url
-
-    const searchParams = new URLSearchParams(window.location.search);
-    searchParams.set("style", e.detail.style.label);
-
-    const nextURL = `?${searchParams.toString()}${window.location.hash}`;
-    const nextTitle = "Public Map";
-    const nextState = { additionalInformation: "Updated the URL with JS" };
-    window.history.pushState(nextState, nextTitle, nextURL);
-
-    settings.map.style = e.detail.style.label;
-
-    map.once("styledata", function (e) {
-      customizeMapStyle();
-    });
-  }
-
-  var customData = {
-    features: [],
-    type: "FeatureCollection",
-  };
 
   onMount(() => {
     // Load map config from external JSON
@@ -231,171 +182,59 @@
     };
   });
 
-  function setLocationContext() {
-    let querylngLat = map.getCenter();
+  //
+  // Map state change handlers
+  //
 
-    let reverseGeocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${
-      querylngLat.lng
-    }%2C${querylngLat.lat}.json?access_token=${
-      settings.map.accessToken
-    }&worldview=${settings.map.worldview.toLocaleLowerCase()}&types=country%2Cregion%2Cdistrict%2Cpostcode%2Clocality%2Cplace%2Cneighborhood%2Caddress%2Cpoi&language=${
-      settings.user.language
-    }`;
-
-    settings.map.locationContext.fetch = fetch(reverseGeocodingUrl)
-      .then((resp) => resp.json())
-      .then((data) => {
-        // DEBUG CONTEXT
-        // console.log(data);
-
-        settings.map.locationContext.geojson = data;
-
-        if (data.features.length) {
-          settings.map.locationContext.iso_3166_1_label =
-            data.features[data.features.length - 1][
-              `text_${settings.user.language}`
-            ];
-
-          settings.map.locationContext.iso_3166_1 = data.features[
-            data.features.length - 1
-          ]["properties"]["short_code"].toUpperCase();
-
-          settings.map.locationContext.text = "";
-
-          data.features.forEach((feature) => {
-            if (
-              feature.place_type.indexOf("country") > -1 ||
-              (feature.place_type.indexOf("region") > -1 &&
-                map.getZoom() > 6) ||
-              (feature.place_type.indexOf("district") > -1 && map.getZoom() > 9)
-            ) {
-              settings.map.locationContext.text +=
-                feature.text +
-                (feature.place_type.indexOf("country") == -1 ? ", " : " ");
-            }
-          });
-        }
-
-        updateMapStyle();
-
-        return data;
-      });
+  function onGeocoderReady(e) {}
+  function onGeocoderResult(e) {
+    map.setCenter(e.detail.result.center);
+    setLocationContext();
   }
 
-  // Update map style based on current location context
-  function updateMapStyle() {
-    // Mask features not in current country
+  function onGeolocate(e) {
+    setLocationContext();
+  }
 
-    if (settings.map.locationContext.iso_3166_1) {
-      const iso_3166_1 = settings.map.locationContext.iso_3166_1;
+  function onMapReady(e) {
+    map = mapbox.getMap();
+    mapbox = mapbox.getMapbox();
 
-      const maskableSourceLayers = [
-        "place_label",
-        "road",
-        "country_boundaries",
-        "admin",
-      ];
-
-      map
-        .getStyle()
-        .layers.filter(
-          (layer) => maskableSourceLayers.indexOf(layer["source-layer"]) > -1
+    if (settings.map.autoLocate) {
+      map.fitBounds(
+        JSON.parse(
+          countryList.filter(
+            (country) => country.iso_3166_1 == settings.user.location.iso_3166_1
+          )[0].bounds
         )
-        .forEach((layer) => {
-          if (layer.type == "symbol") {
-            map.setPaintProperty(layer.id, "text-opacity", [
-              "match",
-              ["get", "iso_3166_1"],
-              iso_3166_1,
-              1,
-              0.5,
-            ]);
-
-            map.setLayoutProperty(layer.id, "symbol-sort-key", [
-              "match",
-              ["get", "iso_3166_1"],
-              iso_3166_1,
-              0,
-              1,
-            ]);
-
-            map.setPaintProperty(layer.id, "icon-opacity", [
-              "match",
-              ["get", "iso_3166_1"],
-              iso_3166_1,
-              1,
-              0.1,
-            ]);
-          }
-
-          if (layer.type == "fill" && layer.id == "country-mask") {
-            map.setPaintProperty(layer.id, "fill-color", [
-              "case",
-              ["in", iso_3166_1, ["get", "iso_3166_1"]],
-              "hsla(0, 0%, 94%, 0)",
-              ["match", ["get", "disputed"], ["true"], true, false],
-              "hsla(36, 0%, 10%, 0.05)",
-              "hsla(36, 0%, 100%, 0.5)",
-            ]);
-          }
-
-          if (layer.type == "line") {
-            if (layer.id == "country-mask-outline") {
-              map.setPaintProperty(layer.id, "line-opacity", [
-                "case",
-                ["in", iso_3166_1, ["get", "iso_3166_1"]],
-                1,
-                0,
-              ]);
-            } else {
-              const srcLineOpacity =
-                map.getPaintProperty(layer.id, "line-opacity") || 1;
-
-              if (
-                Array.isArray(srcLineOpacity) &&
-                (srcLineOpacity[1] == "zoom" || srcLineOpacity[2] == "zoom")
-              ) {
-                // TODO: https://github.com/publicmap/publicmap.github.io/issues/23
-              } else {
-                map.setPaintProperty(layer.id, "line-opacity", [
-                  "match",
-                  ["get", "iso_3166_1"],
-                  iso_3166_1,
-                  srcLineOpacity || 1,
-                  0.3,
-                ]);
-              }
-            }
-          }
-        });
+      );
     }
 
-    if (settings.map.wikidata.isEnabled && (map.getZoom() > 10)) {
-      getWikidataFeatures();
-    }
+    setupMapStyle();
   }
 
-  function forwardGeocoder(query) {
-    var matchingFeatures = [];
-    for (var i = 0; i < customData.features.length; i++) {
-      var feature = customData.features[i];
-      // handle queries with different capitalization than the source data by calling toLowerCase()
-      if (
-        feature.properties.title.toLowerCase().search(query.toLowerCase()) !==
-        -1
-      ) {
-        // add a tree emoji as a prefix for custom data results
-        // using carmen geojson format: https://github.com/mapbox/carmen/blob/master/carmen-geojson.md
-        feature["place_name"] = "🌲 " + feature.properties.title;
-        feature["center"] = feature.geometry.coordinates;
-        feature["place_type"] = ["park"];
-        matchingFeatures.push(feature);
-      }
-    }
-    return matchingFeatures;
+  function onStyleChange(e) {
+    // Update style params in url
+
+    const searchParams = new URLSearchParams(window.location.search);
+    searchParams.set("style", e.detail.style.label);
+
+    const nextURL = `?${searchParams.toString()}${window.location.hash}`;
+    const nextTitle = "Public Map";
+    const nextState = { additionalInformation: "Updated the URL with JS" };
+    window.history.pushState(nextState, nextTitle, nextURL);
+
+    settings.map.style = e.detail.style.label;
+
+    map.once("styledata", function (e) {
+      setupMapStyle();
+    });
   }
 
+  //
   // Detect user country code and browser locale
+  //
+
   function detectUserSettings() {
     var traceRequest = new XMLHttpRequest();
     traceRequest.open("GET", "https://www.cloudflare.com/cdn-cgi/trace");
@@ -425,7 +264,11 @@
     traceRequest.send(null);
   }
 
-  function customizeMapStyle() {
+  //
+  // Setup map style by adding custom layers for overlays, 3D terrain and country mask
+  //
+
+  function setupMapStyle() {
     settings.map.styleName = map.getStyle().name;
     settings.map.stylesheet = map.style.stylesheet;
 
@@ -721,6 +564,157 @@
     }
 
     setLocationContext();
+  }
+
+  //
+  // Set the map location context by reverse geocoding the current map location
+  //
+
+  function setLocationContext() {
+    let querylngLat = map.getCenter();
+
+    let reverseGeocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${
+      querylngLat.lng
+    }%2C${querylngLat.lat}.json?access_token=${
+      settings.map.accessToken
+    }&worldview=${settings.map.worldview.toLocaleLowerCase()}&types=country%2Cregion%2Cdistrict%2Cpostcode%2Clocality%2Cplace%2Cneighborhood%2Caddress%2Cpoi&language=${
+      settings.user.language
+    }`;
+
+    settings.map.locationContext.fetch = fetch(reverseGeocodingUrl)
+      .then((resp) => resp.json())
+      .then((data) => {
+        // DEBUG CONTEXT
+        // console.log(data);
+
+        settings.map.locationContext.geojson = data;
+
+        if (data.features.length) {
+          settings.map.locationContext.iso_3166_1_label =
+            data.features[data.features.length - 1][
+              `text_${settings.user.language}`
+            ];
+
+          settings.map.locationContext.iso_3166_1 = data.features[
+            data.features.length - 1
+          ]["properties"]["short_code"].toUpperCase();
+
+          settings.map.locationContext.text = "";
+
+          data.features.forEach((feature) => {
+            if (
+              feature.place_type.indexOf("country") > -1 ||
+              (feature.place_type.indexOf("region") > -1 &&
+                map.getZoom() > 6) ||
+              (feature.place_type.indexOf("district") > -1 && map.getZoom() > 9)
+            ) {
+              settings.map.locationContext.text +=
+                feature.text +
+                (feature.place_type.indexOf("country") == -1 ? ", " : " ");
+            }
+          });
+        }
+
+        updateMapStyle();
+
+        return data;
+      });
+  }
+
+  //
+  // Update map style based on current location context
+  //
+
+  function updateMapStyle() {
+    // Mask features not in current country
+
+    if (settings.map.locationContext.iso_3166_1) {
+      const iso_3166_1 = settings.map.locationContext.iso_3166_1;
+
+      const maskableSourceLayers = [
+        "place_label",
+        "road",
+        "country_boundaries",
+        "admin",
+      ];
+
+      map
+        .getStyle()
+        .layers.filter(
+          (layer) => maskableSourceLayers.indexOf(layer["source-layer"]) > -1
+        )
+        .forEach((layer) => {
+          if (layer.type == "symbol") {
+            map.setPaintProperty(layer.id, "text-opacity", [
+              "match",
+              ["get", "iso_3166_1"],
+              iso_3166_1,
+              1,
+              0.5,
+            ]);
+
+            map.setLayoutProperty(layer.id, "symbol-sort-key", [
+              "match",
+              ["get", "iso_3166_1"],
+              iso_3166_1,
+              0,
+              1,
+            ]);
+
+            map.setPaintProperty(layer.id, "icon-opacity", [
+              "match",
+              ["get", "iso_3166_1"],
+              iso_3166_1,
+              1,
+              0.1,
+            ]);
+          }
+
+          if (layer.type == "fill" && layer.id == "country-mask") {
+            map.setPaintProperty(layer.id, "fill-color", [
+              "case",
+              ["in", iso_3166_1, ["get", "iso_3166_1"]],
+              "hsla(0, 0%, 94%, 0)",
+              ["match", ["get", "disputed"], ["true"], true, false],
+              "hsla(36, 0%, 10%, 0.05)",
+              "hsla(36, 0%, 100%, 0.5)",
+            ]);
+          }
+
+          if (layer.type == "line") {
+            if (layer.id == "country-mask-outline") {
+              map.setPaintProperty(layer.id, "line-opacity", [
+                "case",
+                ["in", iso_3166_1, ["get", "iso_3166_1"]],
+                1,
+                0,
+              ]);
+            } else {
+              const srcLineOpacity =
+                map.getPaintProperty(layer.id, "line-opacity") || 1;
+
+              if (
+                Array.isArray(srcLineOpacity) &&
+                (srcLineOpacity[1] == "zoom" || srcLineOpacity[2] == "zoom")
+              ) {
+                // TODO: https://github.com/publicmap/publicmap.github.io/issues/23
+              } else {
+                map.setPaintProperty(layer.id, "line-opacity", [
+                  "match",
+                  ["get", "iso_3166_1"],
+                  iso_3166_1,
+                  srcLineOpacity || 1,
+                  0.3,
+                ]);
+              }
+            }
+          }
+        });
+    }
+
+    if (settings.map.wikidata.isEnabled && map.getZoom() > 10) {
+      getWikidataFeatures();
+    }
   }
 
   //
