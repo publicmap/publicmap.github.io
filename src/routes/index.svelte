@@ -1,5 +1,5 @@
 <script>
-  import Mapbox from "../components/Mapbox.svelte";
+  import Mapbox from "../components/App.svelte";
   import { onMount } from "svelte";
 
   let mapbox;

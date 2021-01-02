@@ -200,6 +200,14 @@
     map = mapbox.getMap();
     mapbox = mapbox.getMapbox();
 
+    // Enable RTL support
+    // https://docs.mapbox.com/mapbox-gl-js/example/mapbox-gl-rtl-text/
+    mapbox.setRTLTextPlugin(
+      "https://api.mapboxgl.com/mapbox-gl-js/plugins/mapbox-gl-rtl-text/v0.2.3/mapbox-gl-rtl-text.js",
+      null,
+      true // Lazy load the plugin
+    );
+
     if (settings.map.autoLocate) {
       map.fitBounds(
         JSON.parse(
