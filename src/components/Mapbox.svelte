@@ -751,7 +751,6 @@
   //
 
   function getWikidataFeatures() {
-    // Live query https://w.wiki/sNL
 
     Number.prototype.map = function (in_min, in_max, out_min, out_max) {
       return (
@@ -762,6 +761,7 @@
     let queryRadius = map.getZoom().map(10, 14, 8, 0.5);
     queryRadius = queryRadius > 0.5 ? queryRadius : 0.5;
 
+    // Live query https://w.wiki/sNL
     const sparql = `
     SELECT ?item ?itemLabel (SAMPLE(?item_location) AS ?wkt) ?article WHERE {     
   SERVICE wikibase:around { 
@@ -773,13 +773,13 @@
 }
     OPTIONAL{
 ?article schema:about ?item. 
-  ?article schema:inLanguage "en"
+  ?article schema:inLanguage "${settings.user.language}"
            }
 
-SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+SERVICE wikibase:label { bd:serviceParam wikibase:language "${settings.user.language},${settings.user.fallbackLanguage}". }
 }
 GROUP BY ?item ?itemLabel ?article
-LIMIT 100
+LIMIT 200
     `;
     queryWikidata(sparql).then((result) => {
       let geojson = {
