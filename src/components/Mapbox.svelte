@@ -11,7 +11,7 @@
   import { settingsStore } from "./settingsStore.js";
   import sanitizeHtml from "sanitize-html";
   import { parse } from "node-html-parser";
-  import { queryWikidata, shuffle } from "./utils.js";
+  import { queryWikidata } from "./utils.js";
 
   var wkt = require("wellknown");
 
@@ -95,6 +95,9 @@
         rotate: false,
         blur: false,
       },
+      wikidata: {
+        isEnabled: null
+      },
     },
   };
 
@@ -134,6 +137,7 @@
   $: settings.map.source.wms = $page.query.wms;
   $: settings.map.camera.rotate = $page.query.rotate_camera;
   $: settings.map.camera.blur = $page.query.blur;
+  $: settings.map.wikidata.isEnabled = ($page.query.wikidata  || 'true' ) == 'true';
 
   const root = parse($page.query.description);
   settings.map.markers = [];
@@ -165,10 +169,15 @@
     map = mapbox.getMap();
     mapbox = mapbox.getMapbox();
 
-    
-    if(settings.map.autoLocate){
-            map.fitBounds(JSON.parse(countryList.filter(country => country.iso_3166_1 == settings.user.location.iso_3166_1)[0].bounds))
-          }
+    if (settings.map.autoLocate) {
+      map.fitBounds(
+        JSON.parse(
+          countryList.filter(
+            (country) => country.iso_3166_1 == settings.user.location.iso_3166_1
+          )[0].bounds
+        )
+      );
+    }
 
     customizeMapStyle();
   }
@@ -247,8 +256,9 @@
               `text_${settings.user.language}`
             ];
 
-          settings.map.locationContext.iso_3166_1 =
-            data.features[data.features.length - 1]["properties"]["short_code"].toUpperCase();
+          settings.map.locationContext.iso_3166_1 = data.features[
+            data.features.length - 1
+          ]["properties"]["short_code"].toUpperCase();
 
           settings.map.locationContext.text = "";
 
@@ -276,9 +286,7 @@
   function updateMapStyle() {
     // Mask features not in current country
 
-    if (
-      settings.map.locationContext.iso_3166_1
-    ) {
+    if (settings.map.locationContext.iso_3166_1) {
       const iso_3166_1 = settings.map.locationContext.iso_3166_1;
 
       const maskableSourceLayers = [
@@ -362,7 +370,7 @@
         });
     }
 
-    if (map.getZoom() > 10) {
+    if (settings.map.wikidata.isEnabled && (map.getZoom() > 10)) {
       getWikidataFeatures();
     }
   }
@@ -410,7 +418,6 @@
               (d.description == "sovereign state" ||
                 d.description == "dependent territory")
           );
-
         }
       }
     };
@@ -594,11 +601,15 @@
       });
 
       function tileUrl(url) {
-        return url.includes("wmflabs") ? 'https://cors-anywhere.herokuapp.com/' + url : url
+        return url.includes("wmflabs")
+          ? "https://cors-anywhere.herokuapp.com/" + url
+          : url;
       }
 
-      function tileAttributionUrl(url){
-        return url.includes("warper") ? url.replace("tile/", "").split("{")[0] :  url
+      function tileAttributionUrl(url) {
+        return url.includes("warper")
+          ? url.replace("tile/", "").split("{")[0]
+          : url;
       }
 
       map.addLayer(
@@ -674,39 +685,39 @@
     }
 
     // Add Wikidata layer
-    // https://docs.mapbox.com/mapbox-gl-js/example/hillshade/
+    if (settings.map.wikidata.isEnabled) {
+      if (!map.getSource("wikidata")) {
+        map.addSource("wikidata", {
+          type: "geojson",
+          data: null,
+          attribution: "Wikidata",
+        });
 
-    if (!map.getSource("wikidata")) {
-      map.addSource("wikidata", {
-        type: "geojson",
-        data: null,
-        attribution: "Wikidata",
-      });
+        map.addLayer({
+          id: "wikidata-circle",
+          type: "circle",
+          source: "wikidata",
+          paint: {
+            "circle-radius": 2,
+          },
+        });
 
-      map.addLayer({
-        id: "wikidata-circle",
-        type: "circle",
-        source: "wikidata",
-        paint: {
-          "circle-radius": 2,
-        },
-      });
-
-      map.addLayer({
-        id: "wikidata",
-        type: "symbol",
-        source: "wikidata",
-        paint: {
-          "text-opacity": 0.6,
-        },
-        layout: {
-          "text-field": ["get", "name"],
-          "text-font": ["Open Sans Semibold"],
-          "text-size": 12,
-          "text-offset": [0, 0.2],
-          "text-anchor": "top",
-        },
-      });
+        map.addLayer({
+          id: "wikidata",
+          type: "symbol",
+          source: "wikidata",
+          paint: {
+            "text-opacity": 0.6,
+          },
+          layout: {
+            "text-field": ["get", "name"],
+            "text-font": ["Open Sans Semibold"],
+            "text-size": 12,
+            "text-offset": [0, 0.2],
+            "text-anchor": "top",
+          },
+        });
+      }
     }
 
     setLocationContext();
@@ -751,7 +762,6 @@
   //
 
   function getWikidataFeatures() {
-
     Number.prototype.map = function (in_min, in_max, out_min, out_max) {
       return (
         ((this - in_min) * (out_max - out_min)) / (in_max - in_min) + out_min
@@ -776,7 +786,9 @@
   ?article schema:inLanguage "${settings.user.language}"
            }
 
-SERVICE wikibase:label { bd:serviceParam wikibase:language "${settings.user.language},${settings.user.fallbackLanguage}". }
+SERVICE wikibase:label { bd:serviceParam wikibase:language "${
+      settings.user.language
+    },${settings.user.fallbackLanguage}". }
 }
 GROUP BY ?item ?itemLabel ?article
 LIMIT 200
