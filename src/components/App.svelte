@@ -207,7 +207,7 @@
       .remove();
   }
   function onGeocoderResult(e) {
-    map.setCenter(e.detail.result.center);
+    map.fitBounds(e.detail.result.bbox);
     setLocationContext();
   }
 
