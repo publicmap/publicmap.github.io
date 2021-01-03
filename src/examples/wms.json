@@ -1,0 +1,26 @@
+{
+    "title":"Title of the map",
+    "description":"A description of the map view in a few sentences.",
+    "attribution":"<a href='#'>JSON Map config</a>",
+    "worldview":"US",
+    "center": [73.9064,18.5665],
+    "rotate": 180,
+    "styles":[
+        {
+            "label":"OpenStreetMap",
+            "styleName":"OSM Mapnik",
+            "styleUrl":"https://cdn.jsdelivr.net/gh/osm-in/mapbox-gl-styles@latest/osm-mapnik.json"
+         },
+       {
+          "label":"Satellite",
+          "styleName":"Mapbox Satellite",
+          "styleUrl":"mapbox://styles/mapbox/satellite-streets-v11"
+       }
+    ],
+    "source":{            
+          "wms":"https://neo.sci.gsfc.nasa.gov/wms/wms?allowTemporalUpdates=true&contextualWMSLegend=0&srs=EPSG:3857&dpiMode=7&featureCount=10&format=image/png&layers=SEDAC_POP&styles=rgb&temporalSource=provider&timeDimensionExtent=2000-01-01&type=wmst&bbox=bbox={bbox-epsg-3857}"
+    },
+    "camera":{
+       "rotate":true
+    }
+ }

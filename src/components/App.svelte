@@ -88,7 +88,7 @@
       source: {
         geojson: null,
         vector: null,
-        tiles: null,
+        tms: null,
         wms: null,
       },
       camera: {
@@ -113,11 +113,7 @@
       : "Custom"
     : settings.map.styles[0].label;
 
-  $: settings.map.styleUrl =
-    settings.map.style == "Custom"
-      ? $page.query.style
-      : settings.map.styles.filter((s) => s.label == settings.map.style)[0]
-          .styleUrl; // style=mapbox://styles/planemad/ckhijjwug10ht19mjwvno5o38
+  $: settings.map.styleUrl = $page.query.styleUrl || settings.map.styles[0].styleUrl
 
   $: terrainExaggeration = $page.query.terrain || 1.5;
   $: settings.map.title = $page.query.title || null;
@@ -133,7 +129,7 @@
   $: settings.map.accessToken =
     $page.query.access_token ||
     "pk.eyJ1IjoicHVibGljbWFwIiwiYSI6ImNrajZuM3E2MDBtNzkyem55OG9oMjVwNHcifQ.S0ovBPKikZhHZ_6Dexk8Ow"; //
-  $: settings.map.source.tiles = $page.query.tiles;
+  $: settings.map.source.tms = $page.query.tms;
   $: settings.map.source.wms = $page.query.wms;
   $: settings.map.camera.rotate = $page.query.rotate_camera;
   $: settings.map.camera.blur = $page.query.blur;
@@ -150,7 +146,7 @@
   });
 
   // DEBUG: settings
-  // console.log(settings);
+  console.log(settings);
 
   //
   // Initialize Mapbox compnent
@@ -162,7 +158,7 @@
       fetch($page.query.config)
         .then((resp) => resp.json())
         .then((data) => {
-          // Object.assign(settings.map, data);
+          Object.assign(settings.map, data);
         });
     }
 
@@ -186,7 +182,10 @@
   // Map state change handlers
   //
 
-  function onGeocoderReady(e) {}
+  function onGeocoderReady(e) {
+    document.getElementsByClassName('mapboxgl-ctrl-geocoder--icon mapboxgl-ctrl-geocoder--icon-search')[0].insertAdjacentHTML('afterEnd','<span uk-icon="icon: world" style="position:absolute;padding:8px"></span>')
+    document.getElementsByClassName('mapboxgl-ctrl-geocoder--icon mapboxgl-ctrl-geocoder--icon-search')[0].remove();
+  }
   function onGeocoderResult(e) {
     map.setCenter(e.detail.result.center);
     setLocationContext();
@@ -439,15 +438,15 @@
 
     // Add user defined tiles
 
-    if (settings.map.source.tiles) {
-      const sourceURL = new URL(settings.map.source.tiles);
+    if (settings.map.source.tms) {
+      const sourceURL = new URL(settings.map.source.tms);
 
       map.addSource("tiles", {
         type: "raster",
-        tiles: [tileUrl(settings.map.source.tiles)],
+        tiles: [tileUrl(settings.map.source.tms)],
         tileSize: 512,
         attribution: `Overlay tiles from <a target="_top" rel="noopener" href="${tileAttributionUrl(
-          settings.map.source.tiles
+          settings.map.source.tms
         )}">${sourceURL.hostname}</a>`,
       });
 
@@ -898,6 +897,7 @@ LIMIT 200
 
 <section id="info-panel" class="uk-position-absolute uk-position-top-left">
   <div class="uk-card uk-card-body uk-card-default uk-card-small uk-card-hover">
+
     {#if settings.map.title}
       <h2 class="uk-no-margin uk-heading-divider">{settings.map.title}</h2>
     {/if}
@@ -922,7 +922,7 @@ LIMIT 200
       {#if settings.map.locationContext.iso_3166_1}
         <div
           class="uk-position-absolute uk-position-center-left"
-          style="left:50px">
+          style="margin-left:50px">
           {#await settings.map.locationContext.fetch}
             <span>...</span>
           {:then result}
