@@ -852,7 +852,7 @@
 
     // Live query https://w.wiki/sNL
     const sparql = `
-    SELECT ?item ?itemLabel (SAMPLE(?item_location) AS ?wkt) ?article WHERE {     
+    SELECT ?item ?itemLabel ?typeLabel (SAMPLE(?item_location) AS ?wkt) ?article ?geoshape WHERE {     
   SERVICE wikibase:around { 
   ?item wdt:P625 ?item_location .
   bd:serviceParam wikibase:center "Point(${map.getCenter().lng} ${
@@ -864,12 +864,19 @@
 ?article schema:about ?item. 
   ?article schema:inLanguage "${settings.user.language}"
            }
+   OPTIONAL{
+    ?item wdt:P3896 ?geoshape.
+    }
+  
+    OPTIONAL{
+    ?item wdt:P31 ?type.
+    }
 
 SERVICE wikibase:label { bd:serviceParam wikibase:language "${
       settings.user.language
     },${settings.user.fallbackLanguage}". }
 }
-GROUP BY ?item ?itemLabel ?article
+GROUP BY ?item ?itemLabel ?article ?geoshape ?typeLabel
 LIMIT 200
     `;
     queryWikidata(sparql).then((result) => {
