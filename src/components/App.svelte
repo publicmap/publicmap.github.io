@@ -237,11 +237,16 @@
       );
     }
 
-    if(settings.map.configUrl){
-      map.setStyle(settings.map.styles[0].styleUrl)
+    if (settings.map.configUrl) {
+      map.setStyle(settings.map.styles[0].styleUrl);
+      map.once("styledata", function (e) {
+        setupMapStyle();
+      });
+    }else{
+      setupMapStyle();
     }
 
-    setupMapStyle();
+    
   }
 
   function onStyleChange(e) {
@@ -460,12 +465,12 @@
       setLayerWorldview("country-mask-outline");
     }
 
-    // Add user defined tiles
+    // Add user custom tms tiles
 
     if (settings.map.source.tms) {
       const sourceURL = new URL(settings.map.source.tms);
 
-      map.addSource("tiles", {
+      map.addSource("tms", {
         type: "raster",
         tiles: [tileUrl(settings.map.source.tms)],
         tileSize: 512,
@@ -488,9 +493,58 @@
 
       map.addLayer(
         {
-          id: "raster-tiles",
+          id: "tms",
           type: "raster",
-          source: "tiles",
+          source: "tms",
+          minzoom: 0,
+          maxzoom: 22,
+          paint: {
+            "raster-opacity": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              12,
+              0.95,
+              15,
+              0.8,
+              17,
+              0.2,
+            ],
+          },
+        },
+        lineLayerId
+      );
+    }
+
+    // Add custom wms
+    if (settings.map.source.wms) {
+      const sourceURL = new URL(settings.map.source.wms);
+      map.addSource("wms", {
+        type: "raster",
+        tiles: [tileUrl(settings.map.source.wms)],
+        tileSize: 512,
+        attribution: `Overlay wms from <a target="_top" rel="noopener" href="${tileAttributionUrl(
+          settings.map.source.wms
+        )}">${sourceURL.hostname}</a>`,
+      });
+
+      function tileUrl(url) {
+        return url.includes("wmflabs")
+          ? "https://cors-anywhere.herokuapp.com/" + url
+          : url;
+      }
+
+      function tileAttributionUrl(url) {
+        return url.includes("warper")
+          ? url.replace("tile/", "").split("{")[0]
+          : url;
+      }
+
+      map.addLayer(
+        {
+          id: "wms",
+          type: "raster",
+          source: "wms",
           minzoom: 0,
           maxzoom: 22,
           paint: {
