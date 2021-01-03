@@ -44,6 +44,7 @@
       },
     },
     map: {
+      configUrl: null,
       accessToken: null,
       title: null,
       description: null,
@@ -105,6 +106,7 @@
   // Define URL query params
   //
 
+  $: settings.map.configUrl = $page.query.config || null;
   $: customAttribution = $page.query.attribution || null;
 
   $: settings.map.style = $page.query.style
@@ -113,7 +115,14 @@
       : "Custom"
     : settings.map.styles[0].label;
 
-  $: settings.map.styleUrl = $page.query.styleUrl || settings.map.styles[0].styleUrl
+  $: settings.map.styleUrl =
+    settings.map.style == "Custom"
+      ? $page.query.style
+      : $page.query.styleUrl ||
+        settings.map.styles.filter((s) => s.label == settings.map.style)[0]
+          .styleUrl ||
+        settings.map.styleUrl ||
+        "https://cdn.jsdelivr.net/gh/osm-in/mapbox-gl-styles@latest/osm-mapnik.json";
 
   $: terrainExaggeration = $page.query.terrain || 1.5;
   $: settings.map.title = $page.query.title || null;
@@ -145,17 +154,17 @@
     });
   });
 
-  // DEBUG: settings
-  console.log(settings);
-
   //
   // Initialize Mapbox compnent
   //
 
   onMount(() => {
+    // DEBUG: settings
+    // console.log(settings);
+
     // Load map config from external JSON
-    if ($page.query.config) {
-      fetch($page.query.config)
+    if (settings.map.configUrl) {
+      fetch(settings.map.configUrl)
         .then((resp) => resp.json())
         .then((data) => {
           Object.assign(settings.map, data);
@@ -183,8 +192,19 @@
   //
 
   function onGeocoderReady(e) {
-    document.getElementsByClassName('mapboxgl-ctrl-geocoder--icon mapboxgl-ctrl-geocoder--icon-search')[0].insertAdjacentHTML('afterEnd','<span uk-icon="icon: world" style="position:absolute;padding:8px"></span>')
-    document.getElementsByClassName('mapboxgl-ctrl-geocoder--icon mapboxgl-ctrl-geocoder--icon-search')[0].remove();
+    document
+      .getElementsByClassName(
+        "mapboxgl-ctrl-geocoder--icon mapboxgl-ctrl-geocoder--icon-search"
+      )[0]
+      .insertAdjacentHTML(
+        "afterEnd",
+        '<span uk-icon="icon: world" style="position:absolute;padding:8px"></span>'
+      );
+    document
+      .getElementsByClassName(
+        "mapboxgl-ctrl-geocoder--icon mapboxgl-ctrl-geocoder--icon-search"
+      )[0]
+      .remove();
   }
   function onGeocoderResult(e) {
     map.setCenter(e.detail.result.center);
@@ -215,6 +235,10 @@
           )[0].bounds
         )
       );
+    }
+
+    if(settings.map.configUrl){
+      map.setStyle(settings.map.styles[0].styleUrl)
     }
 
     setupMapStyle();
@@ -897,7 +921,6 @@ LIMIT 200
 
 <section id="info-panel" class="uk-position-absolute uk-position-top-left">
   <div class="uk-card uk-card-body uk-card-default uk-card-small uk-card-hover">
-
     {#if settings.map.title}
       <h2 class="uk-no-margin uk-heading-divider">{settings.map.title}</h2>
     {/if}
