@@ -11,7 +11,7 @@
   import { settingsStore } from "./settingsStore.js";
   import sanitizeHtml from "sanitize-html";
   import { parse } from "node-html-parser";
-  import { queryWikidata, shuffle } from "./utils.js";
+  import { queryWikidata } from "./utils.js";
 
   var wkt = require("wellknown");
 
@@ -44,6 +44,7 @@
       },
     },
     map: {
+      configUrl: null,
       accessToken: null,
       title: null,
       description: null,
@@ -88,12 +89,15 @@
       source: {
         geojson: null,
         vector: null,
-        tiles: null,
+        tms: null,
         wms: null,
       },
       camera: {
         rotate: false,
         blur: false,
+      },
+      wikidata: {
+        isEnabled: null,
       },
     },
   };
@@ -102,6 +106,7 @@
   // Define URL query params
   //
 
+  $: settings.map.configUrl = $page.query.config || null;
   $: customAttribution = $page.query.attribution || null;
 
   $: settings.map.style = $page.query.style
@@ -113,8 +118,11 @@
   $: settings.map.styleUrl =
     settings.map.style == "Custom"
       ? $page.query.style
-      : settings.map.styles.filter((s) => s.label == settings.map.style)[0]
-          .styleUrl; // style=mapbox://styles/planemad/ckhijjwug10ht19mjwvno5o38
+      : $page.query.styleUrl ||
+        settings.map.styles.filter((s) => s.label == settings.map.style)[0]
+          .styleUrl ||
+        settings.map.styleUrl ||
+        "https://cdn.jsdelivr.net/gh/osm-in/mapbox-gl-styles@latest/osm-mapnik.json";
 
   $: terrainExaggeration = $page.query.terrain || 1.5;
   $: settings.map.title = $page.query.title || null;
@@ -130,10 +138,12 @@
   $: settings.map.accessToken =
     $page.query.access_token ||
     "pk.eyJ1IjoicHVibGljbWFwIiwiYSI6ImNrajZuM3E2MDBtNzkyem55OG9oMjVwNHcifQ.S0ovBPKikZhHZ_6Dexk8Ow"; //
-  $: settings.map.source.tiles = $page.query.tiles;
+  $: settings.map.source.tms = $page.query.tms;
   $: settings.map.source.wms = $page.query.wms;
   $: settings.map.camera.rotate = $page.query.rotate_camera;
   $: settings.map.camera.blur = $page.query.blur;
+  $: settings.map.wikidata.isEnabled =
+    ($page.query.wikidata || "true") == "true";
 
   const root = parse($page.query.description);
   settings.map.markers = [];
@@ -144,65 +154,20 @@
     });
   });
 
-  // DEBUG: settings
-  // console.log(settings);
-
   //
-  // Map state change handers
+  // Initialize Mapbox compnent
   //
-
-  function onGeocoderReady(e) {}
-  function onGeocoderResult(e) {
-    map.setCenter(e.detail.result.center);
-    setLocationContext();
-  }
-
-  function onGeolocate(e) {
-    setLocationContext();
-  }
-
-  function onMapReady(e) {
-    map = mapbox.getMap();
-    mapbox = mapbox.getMapbox();
-
-    
-    if(settings.map.autoLocate){
-            map.fitBounds(JSON.parse(countryList.filter(country => country.iso_3166_1 == settings.user.location.iso_3166_1)[0].bounds))
-          }
-
-    customizeMapStyle();
-  }
-
-  function onStyleChange(e) {
-    // Update style params in url
-
-    const searchParams = new URLSearchParams(window.location.search);
-    searchParams.set("style", e.detail.style.label);
-
-    const nextURL = `?${searchParams.toString()}${window.location.hash}`;
-    const nextTitle = "Public Map";
-    const nextState = { additionalInformation: "Updated the URL with JS" };
-    window.history.pushState(nextState, nextTitle, nextURL);
-
-    settings.map.style = e.detail.style.label;
-
-    map.once("styledata", function (e) {
-      customizeMapStyle();
-    });
-  }
-
-  var customData = {
-    features: [],
-    type: "FeatureCollection",
-  };
 
   onMount(() => {
+    // DEBUG: settings
+    // console.log(settings);
+
     // Load map config from external JSON
-    if ($page.query.config) {
-      fetch($page.query.config)
+    if (settings.map.configUrl) {
+      fetch(settings.map.configUrl)
         .then((resp) => resp.json())
         .then((data) => {
-          // Object.assign(settings.map, data);
+          Object.assign(settings.map, data);
         });
     }
 
@@ -222,172 +187,90 @@
     };
   });
 
-  function setLocationContext() {
-    let querylngLat = map.getCenter();
+  //
+  // Map state change handlers
+  //
 
-    let reverseGeocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${
-      querylngLat.lng
-    }%2C${querylngLat.lat}.json?access_token=${
-      settings.map.accessToken
-    }&worldview=${settings.map.worldview.toLocaleLowerCase()}&types=country%2Cregion%2Cdistrict%2Cpostcode%2Clocality%2Cplace%2Cneighborhood%2Caddress%2Cpoi&language=${
-      settings.user.language
-    }`;
-
-    settings.map.locationContext.fetch = fetch(reverseGeocodingUrl)
-      .then((resp) => resp.json())
-      .then((data) => {
-        // DEBUG CONTEXT
-        // console.log(data);
-
-        settings.map.locationContext.geojson = data;
-
-        if (data.features.length) {
-          settings.map.locationContext.iso_3166_1_label =
-            data.features[data.features.length - 1][
-              `text_${settings.user.language}`
-            ];
-
-          settings.map.locationContext.iso_3166_1 =
-            data.features[data.features.length - 1]["properties"]["short_code"].toUpperCase();
-
-          settings.map.locationContext.text = "";
-
-          data.features.forEach((feature) => {
-            if (
-              feature.place_type.indexOf("country") > -1 ||
-              (feature.place_type.indexOf("region") > -1 &&
-                map.getZoom() > 6) ||
-              (feature.place_type.indexOf("district") > -1 && map.getZoom() > 9)
-            ) {
-              settings.map.locationContext.text +=
-                feature.text +
-                (feature.place_type.indexOf("country") == -1 ? ", " : " ");
-            }
-          });
-        }
-
-        updateMapStyle();
-
-        return data;
-      });
+  function onGeocoderReady(e) {
+    document
+      .getElementsByClassName(
+        "mapboxgl-ctrl-geocoder--icon mapboxgl-ctrl-geocoder--icon-search"
+      )[0]
+      .insertAdjacentHTML(
+        "afterEnd",
+        '<span uk-icon="icon: world" style="position:absolute;padding:8px"></span>'
+      );
+    document
+      .getElementsByClassName(
+        "mapboxgl-ctrl-geocoder--icon mapboxgl-ctrl-geocoder--icon-search"
+      )[0]
+      .remove();
+  }
+  function onGeocoderResult(e) {
+    map.setCenter(e.detail.result.center);
+    setLocationContext();
   }
 
-  // Update map style based on current location context
-  function updateMapStyle() {
-    // Mask features not in current country
+  function onGeolocate(e) {
+    setLocationContext();
+  }
 
-    if (
-      settings.map.locationContext.iso_3166_1
-    ) {
-      const iso_3166_1 = settings.map.locationContext.iso_3166_1;
+  function onMapReady(e) {
+    map = mapbox.getMap();
+    mapbox = mapbox.getMapbox();
 
-      const maskableSourceLayers = [
-        "place_label",
-        "road",
-        "country_boundaries",
-        "admin",
-      ];
+    // Enable RTL support
+    // https://docs.mapbox.com/mapbox-gl-js/example/mapbox-gl-rtl-text/
+    mapbox.setRTLTextPlugin(
+      "https://api.mapboxgl.com/mapbox-gl-js/plugins/mapbox-gl-rtl-text/v0.2.3/mapbox-gl-rtl-text.js",
+      null,
+      true // Lazy load the plugin
+    );
 
-      map
-        .getStyle()
-        .layers.filter(
-          (layer) => maskableSourceLayers.indexOf(layer["source-layer"]) > -1
+    if (settings.map.autoLocate) {
+      map.fitBounds(
+        JSON.parse(
+          countryList.filter(
+            (country) => country.iso_3166_1 == settings.user.location.iso_3166_1
+          )[0].bounds
         )
-        .forEach((layer) => {
-          if (layer.type == "symbol") {
-            map.setPaintProperty(layer.id, "text-opacity", [
-              "match",
-              ["get", "iso_3166_1"],
-              iso_3166_1,
-              1,
-              0.5,
-            ]);
-
-            map.setLayoutProperty(layer.id, "symbol-sort-key", [
-              "match",
-              ["get", "iso_3166_1"],
-              iso_3166_1,
-              0,
-              1,
-            ]);
-
-            map.setPaintProperty(layer.id, "icon-opacity", [
-              "match",
-              ["get", "iso_3166_1"],
-              iso_3166_1,
-              1,
-              0.1,
-            ]);
-          }
-
-          if (layer.type == "fill" && layer.id == "country-mask") {
-            map.setPaintProperty(layer.id, "fill-color", [
-              "case",
-              ["in", iso_3166_1, ["get", "iso_3166_1"]],
-              "hsla(0, 0%, 94%, 0)",
-              ["match", ["get", "disputed"], ["true"], true, false],
-              "hsla(36, 0%, 10%, 0.05)",
-              "hsla(36, 0%, 100%, 0.5)",
-            ]);
-          }
-
-          if (layer.type == "line") {
-            if (layer.id == "country-mask-outline") {
-              map.setPaintProperty(layer.id, "line-opacity", [
-                "case",
-                ["in", iso_3166_1, ["get", "iso_3166_1"]],
-                1,
-                0,
-              ]);
-            } else {
-              const srcLineOpacity =
-                map.getPaintProperty(layer.id, "line-opacity") || 1;
-
-              if (
-                Array.isArray(srcLineOpacity) &&
-                (srcLineOpacity[1] == "zoom" || srcLineOpacity[2] == "zoom")
-              ) {
-                // TODO: https://github.com/publicmap/publicmap.github.io/issues/23
-              } else {
-                map.setPaintProperty(layer.id, "line-opacity", [
-                  "match",
-                  ["get", "iso_3166_1"],
-                  iso_3166_1,
-                  srcLineOpacity || 1,
-                  0.3,
-                ]);
-              }
-            }
-          }
-        });
+      );
     }
 
-    if (map.getZoom() > 10) {
-      getWikidataFeatures();
+    if (settings.map.configUrl) {
+      map.setStyle(settings.map.styles[0].styleUrl);
+      map.once("styledata", function (e) {
+        setupMapStyle();
+      });
+    }else{
+      setupMapStyle();
     }
+
+    
   }
 
-  function forwardGeocoder(query) {
-    var matchingFeatures = [];
-    for (var i = 0; i < customData.features.length; i++) {
-      var feature = customData.features[i];
-      // handle queries with different capitalization than the source data by calling toLowerCase()
-      if (
-        feature.properties.title.toLowerCase().search(query.toLowerCase()) !==
-        -1
-      ) {
-        // add a tree emoji as a prefix for custom data results
-        // using carmen geojson format: https://github.com/mapbox/carmen/blob/master/carmen-geojson.md
-        feature["place_name"] = "🌲 " + feature.properties.title;
-        feature["center"] = feature.geometry.coordinates;
-        feature["place_type"] = ["park"];
-        matchingFeatures.push(feature);
-      }
-    }
-    return matchingFeatures;
+  function onStyleChange(e) {
+    // Update style params in url
+
+    const searchParams = new URLSearchParams(window.location.search);
+    searchParams.set("style", e.detail.style.label);
+
+    const nextURL = `?${searchParams.toString()}${window.location.hash}`;
+    const nextTitle = "Public Map";
+    const nextState = { additionalInformation: "Updated the URL with JS" };
+    window.history.pushState(nextState, nextTitle, nextURL);
+
+    settings.map.style = e.detail.style.label;
+
+    map.once("styledata", function (e) {
+      setupMapStyle();
+    });
   }
 
+  //
   // Detect user country code and browser locale
+  //
+
   function detectUserSettings() {
     var traceRequest = new XMLHttpRequest();
     traceRequest.open("GET", "https://www.cloudflare.com/cdn-cgi/trace");
@@ -410,7 +293,6 @@
               (d.description == "sovereign state" ||
                 d.description == "dependent territory")
           );
-
         }
       }
     };
@@ -418,7 +300,11 @@
     traceRequest.send(null);
   }
 
-  function customizeMapStyle() {
+  //
+  // Setup map style by adding custom layers for overlays, 3D terrain and country mask
+  //
+
+  function setupMapStyle() {
     settings.map.styleName = map.getStyle().name;
     settings.map.stylesheet = map.style.stylesheet;
 
@@ -579,33 +465,86 @@
       setLayerWorldview("country-mask-outline");
     }
 
-    // Add user defined tiles
+    // Add user custom tms tiles
 
-    if (settings.map.source.tiles) {
-      const sourceURL = new URL(settings.map.source.tiles);
+    if (settings.map.source.tms) {
+      const sourceURL = new URL(settings.map.source.tms);
 
-      map.addSource("tiles", {
+      map.addSource("tms", {
         type: "raster",
-        tiles: [tileUrl(settings.map.source.tiles)],
+        tiles: [tileUrl(settings.map.source.tms)],
         tileSize: 512,
         attribution: `Overlay tiles from <a target="_top" rel="noopener" href="${tileAttributionUrl(
-          settings.map.source.tiles
+          settings.map.source.tms
         )}">${sourceURL.hostname}</a>`,
       });
 
       function tileUrl(url) {
-        return url.includes("wmflabs") ? 'https://cors-anywhere.herokuapp.com/' + url : url
+        return url.includes("wmflabs")
+          ? "https://cors-anywhere.herokuapp.com/" + url
+          : url;
       }
 
-      function tileAttributionUrl(url){
-        return url.includes("warper") ? url.replace("tile/", "").split("{")[0] :  url
+      function tileAttributionUrl(url) {
+        return url.includes("warper")
+          ? url.replace("tile/", "").split("{")[0]
+          : url;
       }
 
       map.addLayer(
         {
-          id: "raster-tiles",
+          id: "tms",
           type: "raster",
-          source: "tiles",
+          source: "tms",
+          minzoom: 0,
+          maxzoom: 22,
+          paint: {
+            "raster-opacity": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              12,
+              0.95,
+              15,
+              0.8,
+              17,
+              0.2,
+            ],
+          },
+        },
+        lineLayerId
+      );
+    }
+
+    // Add custom wms
+    if (settings.map.source.wms) {
+      const sourceURL = new URL(settings.map.source.wms);
+      map.addSource("wms", {
+        type: "raster",
+        tiles: [tileUrl(settings.map.source.wms)],
+        tileSize: 512,
+        attribution: `Overlay wms from <a target="_top" rel="noopener" href="${tileAttributionUrl(
+          settings.map.source.wms
+        )}">${sourceURL.hostname}</a>`,
+      });
+
+      function tileUrl(url) {
+        return url.includes("wmflabs")
+          ? "https://cors-anywhere.herokuapp.com/" + url
+          : url;
+      }
+
+      function tileAttributionUrl(url) {
+        return url.includes("warper")
+          ? url.replace("tile/", "").split("{")[0]
+          : url;
+      }
+
+      map.addLayer(
+        {
+          id: "wms",
+          type: "raster",
+          source: "wms",
           minzoom: 0,
           maxzoom: 22,
           paint: {
@@ -674,42 +613,193 @@
     }
 
     // Add Wikidata layer
-    // https://docs.mapbox.com/mapbox-gl-js/example/hillshade/
+    if (settings.map.wikidata.isEnabled) {
+      if (!map.getSource("wikidata")) {
+        map.addSource("wikidata", {
+          type: "geojson",
+          data: null,
+          attribution: "Wikidata",
+        });
 
-    if (!map.getSource("wikidata")) {
-      map.addSource("wikidata", {
-        type: "geojson",
-        data: null,
-        attribution: "Wikidata",
-      });
+        map.addLayer({
+          id: "wikidata-circle",
+          type: "circle",
+          source: "wikidata",
+          paint: {
+            "circle-radius": 2,
+          },
+        });
 
-      map.addLayer({
-        id: "wikidata-circle",
-        type: "circle",
-        source: "wikidata",
-        paint: {
-          "circle-radius": 2,
-        },
-      });
-
-      map.addLayer({
-        id: "wikidata",
-        type: "symbol",
-        source: "wikidata",
-        paint: {
-          "text-opacity": 0.6,
-        },
-        layout: {
-          "text-field": ["get", "name"],
-          "text-font": ["Open Sans Semibold"],
-          "text-size": 12,
-          "text-offset": [0, 0.2],
-          "text-anchor": "top",
-        },
-      });
+        map.addLayer({
+          id: "wikidata",
+          type: "symbol",
+          source: "wikidata",
+          paint: {
+            "text-opacity": 0.6,
+          },
+          layout: {
+            "text-field": ["get", "name"],
+            "text-font": ["Open Sans Semibold"],
+            "text-size": 12,
+            "text-offset": [0, 0.2],
+            "text-anchor": "top",
+          },
+        });
+      }
     }
 
     setLocationContext();
+  }
+
+  //
+  // Set the map location context by reverse geocoding the current map location
+  //
+
+  function setLocationContext() {
+    let querylngLat = map.getCenter();
+
+    let reverseGeocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${
+      querylngLat.lng
+    }%2C${querylngLat.lat}.json?access_token=${
+      settings.map.accessToken
+    }&worldview=${settings.map.worldview.toLocaleLowerCase()}&types=country%2Cregion%2Cdistrict%2Cpostcode%2Clocality%2Cplace%2Cneighborhood%2Caddress%2Cpoi&language=${
+      settings.user.language
+    }`;
+
+    settings.map.locationContext.fetch = fetch(reverseGeocodingUrl)
+      .then((resp) => resp.json())
+      .then((data) => {
+        // DEBUG CONTEXT
+        // console.log(data);
+
+        settings.map.locationContext.geojson = data;
+
+        if (data.features.length) {
+          settings.map.locationContext.iso_3166_1_label =
+            data.features[data.features.length - 1][
+              `text_${settings.user.language}`
+            ];
+
+          settings.map.locationContext.iso_3166_1 = data.features[
+            data.features.length - 1
+          ]["properties"]["short_code"].toUpperCase();
+
+          settings.map.locationContext.text = "";
+
+          data.features.forEach((feature) => {
+            if (
+              feature.place_type.indexOf("country") > -1 ||
+              (feature.place_type.indexOf("region") > -1 &&
+                map.getZoom() > 6) ||
+              (feature.place_type.indexOf("district") > -1 && map.getZoom() > 9)
+            ) {
+              settings.map.locationContext.text +=
+                feature.text +
+                (feature.place_type.indexOf("country") == -1 ? ", " : " ");
+            }
+          });
+        }
+
+        updateMapStyle();
+
+        return data;
+      });
+  }
+
+  //
+  // Update map style based on current location context
+  //
+
+  function updateMapStyle() {
+    // Mask features not in current country
+
+    if (settings.map.locationContext.iso_3166_1) {
+      const iso_3166_1 = settings.map.locationContext.iso_3166_1;
+
+      const maskableSourceLayers = [
+        "place_label",
+        "road",
+        "country_boundaries",
+        "admin",
+      ];
+
+      map
+        .getStyle()
+        .layers.filter(
+          (layer) => maskableSourceLayers.indexOf(layer["source-layer"]) > -1
+        )
+        .forEach((layer) => {
+          if (layer.type == "symbol") {
+            map.setPaintProperty(layer.id, "text-opacity", [
+              "match",
+              ["get", "iso_3166_1"],
+              iso_3166_1,
+              1,
+              0.5,
+            ]);
+
+            map.setLayoutProperty(layer.id, "symbol-sort-key", [
+              "match",
+              ["get", "iso_3166_1"],
+              iso_3166_1,
+              0,
+              1,
+            ]);
+
+            map.setPaintProperty(layer.id, "icon-opacity", [
+              "match",
+              ["get", "iso_3166_1"],
+              iso_3166_1,
+              1,
+              0.1,
+            ]);
+          }
+
+          if (layer.type == "fill" && layer.id == "country-mask") {
+            map.setPaintProperty(layer.id, "fill-color", [
+              "case",
+              ["in", iso_3166_1, ["get", "iso_3166_1"]],
+              "hsla(0, 0%, 94%, 0)",
+              ["match", ["get", "disputed"], ["true"], true, false],
+              "hsla(36, 0%, 10%, 0.05)",
+              "hsla(36, 0%, 100%, 0.5)",
+            ]);
+          }
+
+          if (layer.type == "line") {
+            if (layer.id == "country-mask-outline") {
+              map.setPaintProperty(layer.id, "line-opacity", [
+                "case",
+                ["in", iso_3166_1, ["get", "iso_3166_1"]],
+                1,
+                0,
+              ]);
+            } else {
+              const srcLineOpacity =
+                map.getPaintProperty(layer.id, "line-opacity") || 1;
+
+              if (
+                Array.isArray(srcLineOpacity) &&
+                (srcLineOpacity[1] == "zoom" || srcLineOpacity[2] == "zoom")
+              ) {
+                // TODO: https://github.com/publicmap/publicmap.github.io/issues/23
+              } else {
+                map.setPaintProperty(layer.id, "line-opacity", [
+                  "match",
+                  ["get", "iso_3166_1"],
+                  iso_3166_1,
+                  srcLineOpacity || 1,
+                  0.3,
+                ]);
+              }
+            }
+          }
+        });
+    }
+
+    if (settings.map.wikidata.isEnabled && map.getZoom() > 10) {
+      getWikidataFeatures();
+    }
   }
 
   //
@@ -751,8 +841,6 @@
   //
 
   function getWikidataFeatures() {
-    // Live query https://w.wiki/sNL
-
     Number.prototype.map = function (in_min, in_max, out_min, out_max) {
       return (
         ((this - in_min) * (out_max - out_min)) / (in_max - in_min) + out_min
@@ -762,6 +850,7 @@
     let queryRadius = map.getZoom().map(10, 14, 8, 0.5);
     queryRadius = queryRadius > 0.5 ? queryRadius : 0.5;
 
+    // Live query https://w.wiki/sNL
     const sparql = `
     SELECT ?item ?itemLabel (SAMPLE(?item_location) AS ?wkt) ?article WHERE {     
   SERVICE wikibase:around { 
@@ -773,13 +862,15 @@
 }
     OPTIONAL{
 ?article schema:about ?item. 
-  ?article schema:inLanguage "en"
+  ?article schema:inLanguage "${settings.user.language}"
            }
 
-SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+SERVICE wikibase:label { bd:serviceParam wikibase:language "${
+      settings.user.language
+    },${settings.user.fallbackLanguage}". }
 }
 GROUP BY ?item ?itemLabel ?article
-LIMIT 100
+LIMIT 200
     `;
     queryWikidata(sparql).then((result) => {
       let geojson = {
@@ -908,7 +999,7 @@ LIMIT 100
       {#if settings.map.locationContext.iso_3166_1}
         <div
           class="uk-position-absolute uk-position-center-left"
-          style="left:50px">
+          style="margin-left:50px">
           {#await settings.map.locationContext.fetch}
             <span>...</span>
           {:then result}
