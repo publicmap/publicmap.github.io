@@ -658,8 +658,9 @@
   // Set the map location context by reverse geocoding the current map location
   //
 
-  function setLocationContext(lngLat) {
-    let querylngLat = lngLat || map.getCenter();
+  function setLocationContext(options) {
+    
+    let querylngLat = options && options.hasOwnProperty('lng') || map.getCenter();
 
     let reverseGeocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${
       querylngLat.lng
