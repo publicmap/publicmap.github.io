@@ -659,7 +659,7 @@
   //
 
   function setLocationContext(options) {
-    
+
     let querylngLat = options && options.hasOwnProperty('lng') || map.getCenter();
 
     let reverseGeocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${
@@ -851,7 +851,7 @@
       );
     };
 
-    let queryRadius = map.getZoom().map(10, 14, 8, 0.5);
+    let queryRadius = map.getZoom().map(9, 14, 10, 0.5);
     queryRadius = queryRadius > 0.5 ? queryRadius : 0.5;
 
     // Live query https://w.wiki/sNL
@@ -866,7 +866,7 @@
 }
     ${map.getZoom() < 13 ? "" : "OPTIONAL{"}
 ?article schema:about ?item. 
-  ?article schema:inLanguage "${appConfig.user.language}"
+  ?article schema:inLanguage "${appConfig.user.language}".
   ${map.getZoom() < 13 ? "" : "}"}
 
   ${map.getZoom() < 10 ? "" : "OPTIONAL{"}
@@ -885,6 +885,10 @@ GROUP BY ?item ?itemLabel ?article ?geoshape ?typeLabel
 LIMIT 200
     `;
     queryWikidata(sparql).then((result) => {
+
+      //DEBUG: wikidata query
+      // console.log(sparql, result)
+
       let geojson = {
         type: "FeatureCollection",
         features: [],
