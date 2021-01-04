@@ -17,8 +17,8 @@
           "styleUrl":"mapbox://styles/mapbox/satellite-streets-v11"
        }
     ],
-    "source":{            
-          "wms":"https://neo.sci.gsfc.nasa.gov/wms/wms?allowTemporalUpdates=true&contextualWMSLegend=0&srs=EPSG:3857&dpiMode=7&featureCount=10&format=image/png&layers=SEDAC_POP&styles=rgb&temporalSource=provider&timeDimensionExtent=2000-01-01&type=wmst&bbox=bbox={bbox-epsg-3857}"
+    "source":{      
+        "wms":"https://img.nj.gov/imagerywms/Natural2015?bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.1.1&request=GetMap&srs=EPSG:3857&transparent=true&width=256&height=256&layers=Natural2015"
     },
     "camera":{
        "rotate":true
