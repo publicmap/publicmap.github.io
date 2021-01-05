@@ -208,7 +208,10 @@
   }
   function onGeocoderResult(e) {
     map.fitBounds(e.detail.result.bbox);
-    setLocationContext({lng: e.detail.result.center[0], lat: e.detail.result.center[1]});
+    setLocationContext({
+      lng: e.detail.result.center[0],
+      lat: e.detail.result.center[1],
+    });
   }
 
   function onGeolocate(e) {
@@ -651,6 +654,9 @@
       setLayerWorldview("country-mask-outline");
     }
 
+    //DEBUG: style
+    console.log(map.getStyle());
+
     setLocationContext();
   }
 
@@ -659,8 +665,8 @@
   //
 
   function setLocationContext(options) {
-
-    let querylngLat = options && options.hasOwnProperty('lng') || map.getCenter();
+    let querylngLat =
+      (options && options.hasOwnProperty("lng")) || map.getCenter();
 
     let reverseGeocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${
       querylngLat.lng
@@ -885,7 +891,6 @@ GROUP BY ?item ?itemLabel ?article ?geoshape ?typeLabel
 LIMIT 200
     `;
     queryWikidata(sparql).then((result) => {
-
       //DEBUG: wikidata query
       // console.log(sparql, result)
 
@@ -918,6 +923,10 @@ LIMIT 200
   function closeInfoPanel() {
     document.getElementById("info-panel").style.display = "none";
   }
+
+  function toggleLayerVisiblity(e){
+    map.setLayoutProperty(e.target.id, 'visibility', e.target.checked ? 'visible' : 'none');
+  }
 </script>
 
 <style>
@@ -935,6 +944,10 @@ LIMIT 200
     margin-top: 20px;
     margin-left: 50px;
     width: 400px;
+  }
+  #map-layers {
+    max-height: 400px;
+    overflow-y:scroll;
   }
 
   :global(.uk-card-default) {
@@ -1046,6 +1059,22 @@ LIMIT 200
         <a
           class="uk-link-reset"
           href={`https://api.mapbox.com/styles/v1/${appConfig.map.stylesheet.owner}/${appConfig.map.stylesheet.id}.html?fresh=true&title=copy&access_token=${appConfig.map.accessToken}${window.location.hash}`}>{appConfig.map.styleName ? appConfig.map.styleName + ' by ' + appConfig.map.stylesheet.owner : 'Loading'}</a></span>
+    {/if}
+
+    {#if map}
+      <div id="map-layers">
+        {#each map.getStyle().layers.reverse() as layer}
+          <div>
+            {#if layer.hasOwnProperty('layout') && layer.layout.hasOwnProperty('visiblity') && layer.layout.visiblity == 'none'}
+              <input id={layer.id} class="uk-checkbox" type="checkbox" on:click={toggleLayerVisiblity}/>
+            {:else}
+            <input id={layer.id} class="uk-checkbox" type="checkbox" checked on:click={toggleLayerVisiblity}/>
+            {/if}
+
+            {layer.id}
+          </div>
+        {/each}
+      </div>
     {/if}
   </div>
 </section>
