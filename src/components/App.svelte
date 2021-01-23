@@ -13,6 +13,8 @@
   import { parse } from "node-html-parser";
   import { queryWikidata } from "./utils.js";
 
+  let queryOverpass;
+
   var wkt = require("wellknown");
 
   import { stores } from "@sapper/app";
@@ -53,6 +55,7 @@
       worldviews: ["US", "CN", "IN", "JP"],
       worldview: "US", // Set worldview to use for disputed areas
       style: null, // style: "https://cdn.jsdelivr.net/gh/osm-in/mapbox-gl-styles@latest/osm-mapnik.json",
+      styleJSON: null,
       styles: [
         {
           label: "Satellite",
@@ -91,6 +94,7 @@
         vector: null,
         tms: null,
         wms: null,
+        overpass: null,
       },
       camera: {
         rotate: false,
@@ -140,6 +144,8 @@
     "pk.eyJ1IjoicHVibGljbWFwIiwiYSI6ImNrajZuM3E2MDBtNzkyem55OG9oMjVwNHcifQ.S0ovBPKikZhHZ_6Dexk8Ow"; //
   $: appConfig.map.source.tms = $page.query.tms;
   $: appConfig.map.source.wms = $page.query.wms;
+  $: appConfig.map.source.overpass = $page.query.overpass_query;
+
   $: appConfig.map.camera.rotate = $page.query.rotate_camera;
   $: appConfig.map.camera.blur = $page.query.blur;
   $: appConfig.map.wikidata.isEnabled =
@@ -159,6 +165,8 @@
   //
 
   onMount(() => {
+    queryOverpass = require("query-overpass");
+
     // DEBUG: appConfig
     // console.log($settings,appConfig);
 
@@ -601,6 +609,30 @@
       }
     }
 
+    // Add overpass layer
+    if (appConfig.map.source.overpass) {
+      if (!map.getSource("overpass")) {
+        // const query=`[out:json][timeout:25];(node["tourism"="viewpoint"](32.060173154158,76.495056152344,32.256652437078,76.766624450684)(newer:"2021-01-20T00:00:00Z"););out;>;out skel qt;`
+        // console.log(appConfig.map.source.overpass);
+
+        const query = appConfig.map.source.overpass;
+
+        map.addSource("overpass", {
+          type: "geojson",
+          data: null,
+          attribution: `<a href='https://overpass-api.de/api/convert?data=${query}target=compact'>Overpass API</a>`,
+        });
+
+        queryOverpass(query, function (error, data) {
+          map.getSource("overpass").setData(data);
+
+          setLayerGeojson("suspected-locations", "overpass");
+
+          console.log(data);
+        },{flatProperties:true});
+      }
+    }
+
     // Add a country mask layer
 
     const countryBoundaryLayers = map
@@ -810,6 +842,8 @@
     if (appConfig.map.wikidata.isEnabled && map.getZoom() > 8) {
       getWikidataFeatures();
     }
+
+    appConfig.map.styleJSON = map.getStyle();
   }
 
   //
@@ -834,6 +868,31 @@
     ];
 
     map.setFilter(layerId, worldviewFilter);
+  }
+
+  // Sets a geojson source for the layer
+  function setLayerGeojson(layerId, sourceId) {
+    let styleLayers = map.getStyle().layers;
+
+    styleLayers.forEach((layer, idx) => {
+      // Find matching layers
+      if (layer.id.includes(layerId)) {
+        // Hide the template layer
+        map.setLayoutProperty(layer.id, "visibility", "none");
+
+        // Copy the layer properties and update the source
+        let addLayer = Object.assign(layer, {
+          id: "~" + layer.id,
+          source: sourceId,
+        });
+        delete addLayer["source-layer"];
+
+        // Add layer at the same position
+        map.addLayer(addLayer, layer.id.substring(1));
+      }
+    });
+
+    appConfig.map.styleJSON = map.getStyle();
   }
 
   // Rotate camera around point
@@ -924,8 +983,12 @@ LIMIT 200
     document.getElementById("info-panel").style.display = "none";
   }
 
-  function toggleLayerVisiblity(e){
-    map.setLayoutProperty(e.target.id, 'visibility', e.target.checked ? 'visible' : 'none');
+  function toggleLayerVisiblity(e) {
+    map.setLayoutProperty(
+      e.target.id,
+      "visibility",
+      e.target.checked ? "visible" : "none"
+    );
   }
 </script>
 
@@ -947,7 +1010,7 @@ LIMIT 200
   }
   #map-layers {
     max-height: 400px;
-    overflow-y:scroll;
+    overflow-y: scroll;
   }
 
   :global(.uk-card-default) {
@@ -1005,7 +1068,7 @@ LIMIT 200
 <section id="info-panel" class="uk-position-absolute uk-position-top-left">
   <div class="uk-card uk-card-body uk-card-default uk-card-small uk-card-hover">
     {#if $settings.map.title}
-      <h3 class="uk-no-margin uk-heading-divider">{$settings.map.title}</h3>
+      <h3 class="uk-margin-remove uk-heading-divider">{$settings.map.title}</h3>
     {/if}
 
     <button
@@ -1061,19 +1124,37 @@ LIMIT 200
           href={`https://api.mapbox.com/styles/v1/${appConfig.map.stylesheet.owner}/${appConfig.map.stylesheet.id}.html?fresh=true&title=copy&access_token=${appConfig.map.accessToken}${window.location.hash}`}>{appConfig.map.styleName ? appConfig.map.styleName + ' by ' + appConfig.map.stylesheet.owner : 'Loading'}</a></span>
     {/if}
 
-    {#if map}
+    {#if appConfig.map.styleJSON}
       <div id="map-layers">
-        {#each map.getStyle().layers.reverse() as layer}
-          <div>
-            {#if layer.hasOwnProperty('layout') && layer.layout.hasOwnProperty('visiblity') && layer.layout.visiblity == 'none'}
-              <input id={layer.id} class="uk-checkbox" type="checkbox" on:click={toggleLayerVisiblity}/>
-            {:else}
-            <input id={layer.id} class="uk-checkbox" type="checkbox" checked on:click={toggleLayerVisiblity}/>
-            {/if}
+        <ul class="uk-margin-remove" uk-accordion>
+          <li>
+            <a class="uk-accordion-title" href="#"><small>Map layers</small></a>
+            <div class="uk-accordion-content">
+              {#each appConfig.map.styleJSON.layers.reverse() as layer}
+                <div>
+                  <label>
+                    {#if layer.hasOwnProperty('layout') && layer.layout.hasOwnProperty('visibility') && layer.layout.visibility == 'none'}
+                      <input
+                        id={layer.id}
+                        class="uk-checkbox"
+                        type="checkbox"
+                        on:click={toggleLayerVisiblity} />
+                    {:else}
+                      <input
+                        id={layer.id}
+                        class="uk-checkbox"
+                        type="checkbox"
+                        checked
+                        on:click={toggleLayerVisiblity} />
+                    {/if}
 
-            {layer.id}
-          </div>
-        {/each}
+                    {layer.id}
+                  </label>
+                </div>
+              {/each}
+            </div>
+          </li>
+        </ul>
       </div>
     {/if}
   </div>
