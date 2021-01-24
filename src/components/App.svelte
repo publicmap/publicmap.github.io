@@ -1,29 +1,30 @@
 <script>
-  import { Map, Geocoder, Marker, controls } from "@beyonk/svelte-mapbox";
   import { onMount, setContext } from "svelte";
+  import { contextKey } from "./mapbox.js";
+  import { settings } from "./AppStore.js";
+
+  import { Map, Geocoder, Marker, controls } from "@beyonk/svelte-mapbox";
+  const { GeolocateControl, ScaleControl } = controls;
+
   import RulerControl from "../components/Mapbox/RulerControl.svelte";
   import NavControl from "../components/Mapbox/NavControl.svelte";
   import InspectControl from "../components/Mapbox/InspectControl.svelte";
-  import TitleControl from "../components/Mapbox/TitleControl.svelte";
   import StylesControl from "../components/Mapbox/StylesControl.svelte";
   import TiltShift from "./Mapbox/TiltShift.svelte";
-  import { contextKey } from "./mapbox.js";
-  import { settings } from "./AppStore.js";
+
   import sanitizeHtml from "sanitize-html";
   import { parse } from "node-html-parser";
   import { queryWikidata } from "./utils.js";
-
-  let queryOverpass;
-
-  var wkt = require("wellknown");
-
   import { stores } from "@sapper/app";
   const { page } = stores();
 
-  const { GeolocateControl, ScaleControl } = controls;
+  const SphericalMercator = require("@mapbox/sphericalmercator");
+
+  const wkt = require("wellknown");
 
   import countriesLookup from "../data/mapbox-countries-v1.json";
 
+  let queryOverpass;
   let map, geocoder, mapbox, countryList;
 
   setContext(contextKey, {
@@ -95,6 +96,10 @@
         tms: null,
         wms: null,
         overpass: null,
+        taskingProject: {
+          url: null,
+          json: null,
+        },
       },
       camera: {
         rotate: false,
@@ -145,6 +150,7 @@
   $: appConfig.map.source.tms = $page.query.tms;
   $: appConfig.map.source.wms = $page.query.wms;
   $: appConfig.map.source.overpass = $page.query.overpass_query;
+  $: appConfig.map.source.taskingProject.url = $page.query.tasking_project;
 
   $: appConfig.map.camera.rotate = $page.query.rotate_camera;
   $: appConfig.map.camera.blur = $page.query.blur;
@@ -609,6 +615,30 @@
       }
     }
 
+    // Add tasking manager project
+    if (appConfig.map.source.taskingProject.url) {
+      if (!map.getSource("tasking")) {
+        map.addSource("tasking", {
+          type: "geojson",
+          data: null,
+          attribution: `<a href='${appConfig.map.source.taskingProject.url}'>Tasking Manager</a>`,
+        });
+
+        const projectApiUrl = appConfig.map.source.taskingProject.url.replace(
+          "projects",
+          "api/v2/projects"
+        );
+
+        fetch(projectApiUrl)
+          .then((resp) => resp.json())
+          .then((data) => {
+            appConfig.map.source.taskingProject.data = data;
+            map.getSource("tasking").setData(data.tasks);
+            setLayerGeojson("Task grid", "tasking");
+          });
+      }
+    }
+
     // Add overpass layer
     if (appConfig.map.source.overpass) {
       if (!map.getSource("overpass")) {
@@ -620,16 +650,18 @@
         map.addSource("overpass", {
           type: "geojson",
           data: null,
-          attribution: `<a href='https://overpass-api.de/api/convert?data=${query}target=compact'>Overpass API</a>`,
+          attribution: `<a href='https://overpass-turbo.eu/?Q=${query}&R'>Overpass API</a>`,
         });
 
-        queryOverpass(query, function (error, data) {
-          map.getSource("overpass").setData(data);
+        queryOverpass(
+          query,
+          function (error, data) {
+            map.getSource("overpass").setData(data);
 
-          setLayerGeojson("suspected-locations", "overpass");
-
-          console.log(data);
-        },{flatProperties:true});
+            setLayerGeojson("suspected-locations", "overpass");
+          },
+          { flatProperties: true }
+        );
       }
     }
 
@@ -687,7 +719,7 @@
     }
 
     //DEBUG: style
-    console.log(map.getStyle());
+    // console.log(map.getStyle());
 
     setLocationContext();
   }
