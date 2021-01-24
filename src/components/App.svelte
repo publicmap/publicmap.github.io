@@ -134,11 +134,13 @@
         "https://cdn.jsdelivr.net/gh/osm-in/mapbox-gl-styles@latest/osm-mapnik.json";
 
   $: terrainExaggeration = $page.query.terrain || 1.5;
-  $: appConfig.map.title = $page.query.title || null;
+  $: appConfig.map.title = $page.query.title || 'publicmap';
   $: appConfig.map.description = $page.query.description
     ? sanitizeHtml($page.query.description, {
+      allowedTags: ["a"],
         allowedAttributes: {
           data: ["data-lat", "data-lng"],
+          a: [ "href" ]
         },
       })
     : null;
@@ -1099,8 +1101,8 @@ LIMIT 200
 
 <section id="info-panel" class="uk-position-absolute uk-position-top-left">
   <div class="uk-card uk-card-body uk-card-default uk-card-small uk-card-hover">
-    {#if $settings.map.title}
-      <h3 class="uk-margin-remove uk-heading-divider">{$settings.map.title}</h3>
+    {#if appConfig.map.title}
+      <h3 class="uk-margin-remove uk-heading-divider">{appConfig.map.title}</h3>
     {/if}
 
     <button
