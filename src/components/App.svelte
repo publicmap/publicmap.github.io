@@ -20,6 +20,8 @@
 
   const SphericalMercator = require("@mapbox/sphericalmercator");
 
+  var TinyURL = require("tinyurl");
+
   const wkt = require("wellknown");
 
   import countriesLookup from "../data/mapbox-countries-v1.json";
@@ -134,13 +136,13 @@
         "https://cdn.jsdelivr.net/gh/osm-in/mapbox-gl-styles@latest/osm-mapnik.json";
 
   $: terrainExaggeration = $page.query.terrain || 1.5;
-  $: appConfig.map.title = $page.query.title || 'publicmap';
+  $: appConfig.map.title = $page.query.title || "publicmap";
   $: appConfig.map.description = $page.query.description
     ? sanitizeHtml($page.query.description, {
-      allowedTags: ["a"],
+        allowedTags: ["a"],
         allowedAttributes: {
           data: ["data-lat", "data-lng"],
-          a: [ "href" ]
+          a: ["href"],
         },
       })
     : null;
@@ -638,6 +640,13 @@
             map.getSource("tasking").setData(data.tasks);
             setLayerGeojson("Task grid", "tasking");
           });
+
+        // fetch(
+        //   "https://apps.mapswipe.org/api/agg_results/agg_results_2809_geom.geojson"
+        // )
+        //   .then((resp) => resp.json())
+        //   .then((data) => console.log(data));
+        
       }
     }
 
@@ -1024,6 +1033,15 @@ LIMIT 200
       e.target.checked ? "visible" : "none"
     );
   }
+
+  let shortURL = null;
+
+  function makeShortURL() {
+    TinyURL.shorten(window.location.href, function (res, err) {
+      if (err) console.log(err);
+      shortURL = res;
+    });
+  }
 </script>
 
 <style>
@@ -1102,7 +1120,28 @@ LIMIT 200
 <section id="info-panel" class="uk-position-absolute uk-position-top-left">
   <div class="uk-card uk-card-body uk-card-default uk-card-small uk-card-hover">
     {#if appConfig.map.title}
-      <h3 class="uk-margin-remove uk-heading-divider">{appConfig.map.title}</h3>
+      <h3 class="uk-margin-remove uk-heading-divider">
+        <a
+          href="#modal-share"
+          uk-icon="icon: social"
+          uk-toggle
+          on:click={makeShortURL} />
+        {appConfig.map.title}
+      </h3>
+
+      <!-- This is the modal -->
+      <div id="modal-share" class="uk-flex-top" uk-modal>
+        <div class="uk-modal-dialog uk-modal-body">
+          <button class="uk-modal-close-default" type="button" uk-close></button>
+          {#if shortURL}
+            Share link:
+            <a href={shortURL}>{shortURL}</a>
+          {:else}
+            Shortening URL
+            <div uk-spinner />
+          {/if}
+        </div>
+      </div>
     {/if}
 
     <button
