@@ -32,7 +32,7 @@
     "mapbox-gl": "^1.13.0",
     "query-overpass": "^1.5.5",
     "sapper": "^0.28.0",
-    "svelte": "^3.17.3",
+    "svelte": "^3.49.0",
     "svelte-loader": "^2.9.0",
     "svelte-moveable": "^0.12.1",
     "webpack": "^4.7.0",
